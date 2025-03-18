@@ -566,7 +566,7 @@ def main():
     print(f"Decrypted message: {decrypted_message}")
     
     # Add another transaction
-    tx3_id = blockchain.add_transaction("Eve", "Frank", "Another time-locked message!", 1)
+    tx3_id = blockchain.add_transaction("Eve", "Adam", "Another time-locked message!", 1)
     
     # Mine another block (Block #3)
     print("\nMining block 3...")
