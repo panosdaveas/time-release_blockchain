@@ -438,13 +438,14 @@ class TimeReleaseBlockchain:
             if hash_int % P == target_private_key:
                 # Found a valid nonce that satisfies the equation
                 block_hash = hash_bytes.hex()
-                private_key = hash_int % P
+                # private_key = hash_int % P
+                private_key = hash_int
                 break
     
         mining_time = time.time() - start_time
         print(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
         print(f"Private key for previous block: {private_key}")
-        print(f"Hash satisfies: {hash_int % P} ≡ {target_private_key} (mod {P})")
+        # print(f"Hash satisfies: {hash_int % P} ≡ {target_private_key} (mod {P})")
     
         # Finalize the block with its hash
         new_block.hash = block_hash
@@ -589,6 +590,10 @@ def main():
         print(f"Block {i}: {block.hash}")
         print(f"  Public Key: {block.header.public_key}")
         print(f"  Transactions: {len(block.transactions)}")
+        # for j, transaction in enumerate(block.transactions):
+        #     print(f"    Transaction_id {j}: {transaction.transaction_id}")
+        #     print(f"    Transaction_sender_recipient {j}: {transaction.sender} -> {transaction.recipient}")
+        #     print(f"    Transaction_encrypted_message {j}: {transaction.encrypted_message}")
 
 if __name__ == "__main__":
     main()
