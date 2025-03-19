@@ -13,12 +13,13 @@ import hashlib
 import time
 import json
 import random
-# import ecdsa
+import ecdsa
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field, asdict
 
 # Security parameter (small for demonstration)
-P = 2**256 - 2**32 - 977  # A prime number used for modular arithmetic in cryptographic operations
+# P = 2**256 - 2**32 - 977  # A prime number used for modular arithmetic in cryptographic operations
+P = 2**16 - 2**8 - 55  # A prime number used for modular arithmetic in cryptographic operations
 
 class Transaction:
     def __init__(self, sender: str, recipient: str, message: str, public_key: Tuple[int, int, int]):
@@ -66,7 +67,6 @@ class Transaction:
             # The formula creates a unique transformation for each byte position
             encrypted_byte = (byte + x + (y * i) + z) % 256  # Modulo 256 to keep in byte range
             encrypted_bytes.append(encrypted_byte)
-        
         # Return as a hex string for easy storage and transmission
         return encrypted_bytes.hex()
     
@@ -261,7 +261,7 @@ class TimeReleaseBlockchain:
         """
         self.chain = []  # List to store all blocks
         self.pending_transactions = []  # Transactions waiting to be included in a block
-        self.difficulty = 4  # Number of leading zeros required in block hash (mining difficulty)
+        # self.difficulty = 4  # Number of leading zeros required in block hash (mining difficulty)
         
         # Create the genesis block
         self.create_genesis_block()
@@ -383,65 +383,76 @@ class TimeReleaseBlockchain:
     def mine_block(self) -> Block:
         """
         Mine a new block with the pending transactions.
-        
+    
         The mining process involves finding a nonce value that results in a block hash
-        that meets the difficulty requirement (starts with a specific number of zeros).
-        
+        that satisfies the private key equation:
+        SHA256(SHA256(block_header)) ≡ keyprivate (mod p)
+    
         In the context of time-release cryptography, the hash of this block will be used
         as the private key for the previous block, allowing decryption of its messages.
-        
+    
         Returns:
             The newly mined block
         """
         if not self.chain:
             raise ValueError("Cannot mine block: blockchain is empty")
-        
+    
         # Get the last block and its public key
         last_block = self.chain[-1]
         prev_public_key = last_block.header.public_key
-        
+    
         # Create a new block with current pending transactions
         new_block = Block(
             index=len(self.chain),
             prev_hash=last_block.hash,
             transactions=self.pending_transactions.copy()
         )
-        
+    
         # Generate public key for this block based on the previous block's key
         new_public_key = self.generate_next_public_key(prev_public_key)
         new_block.header.public_key = new_public_key
-        
-        # For demonstration, we'll use a simplified mining process
-        # In a real implementation, this would involve finding a nonce that satisfies the equation
+    
+        # For time-release encryption, we need to find a nonce that satisfies:
+        # SHA256(SHA256(block_header)) ≡ keyprivate (mod p)
         print("Mining block...")
         start_time = time.time()
-        
-        # Simplified mining process: find a nonce that produces a hash with required leading zeros
+    
+        # Target private key for this block (derived from previous block's public key)
+        # In a real implementation, this would be calculated differently
+        x, y, z = prev_public_key
+        target_private_key = (x * y * z) % P
+    
+        # Mining process: find a nonce that produces a hash satisfying the equation
         while True:
             # Try a new nonce
             new_block.header.nonce += 1
             
-            # Calculate hash with the current nonce
-            block_hash = new_block.calculate_hash()
+            # Calculate header string
+            header_string = json.dumps(new_block.header.to_dict(), sort_keys=True)
             
-            # Check if hash satisfies the difficulty requirement
-            # In a real implementation, this would check if the hash satisfies the private key equation
-            if block_hash.startswith("0" * self.difficulty):
-                # The block hash (or a derivative) is the private key for the previous block
-                private_key = int(block_hash, 16) % P
+            # Calculate double SHA-256 hash
+            hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
+            hash_int = int.from_bytes(hash_bytes, byteorder='big')
+            
+            # Check if hash satisfies the private key equation: hash ≡ keyprivate (mod p)
+            if hash_int % P == target_private_key:
+                # Found a valid nonce that satisfies the equation
+                block_hash = hash_bytes.hex()
+                private_key = hash_int % P
                 break
-        
+    
         mining_time = time.time() - start_time
         print(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
         print(f"Private key for previous block: {private_key}")
-        
+        print(f"Hash satisfies: {hash_int % P} ≡ {target_private_key} (mod {P})")
+    
         # Finalize the block with its hash
         new_block.hash = block_hash
-        
+    
         # Add to chain and clear pending transactions
         self.chain.append(new_block)
         self.pending_transactions = []
-        
+    
         return new_block
     
     def decrypt_message(self, block_index: int, transaction_id: str) -> Optional[str]:
@@ -566,7 +577,7 @@ def main():
     print(f"Decrypted message: {decrypted_message}")
     
     # Add another transaction
-    tx3_id = blockchain.add_transaction("Eve", "Adam", "Another time-locked message!", 1)
+    tx3_id = blockchain.add_transaction("Eve", "Frank", "Another time-locked message!", 1)
     
     # Mine another block (Block #3)
     print("\nMining block 3...")
