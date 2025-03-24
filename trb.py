@@ -1,6 +1,9 @@
 """
 Time-Release Blockchain Implementation
 
+based on paper by:
+Chae, S.-W., Kim, J.-I., & Park, Y. (2020). Practical Time-Release Blockchain. Electronics, 9(4), 672. https://doi.org/10.3390/electronics9040672
+
 This code provides a simplified implementation of a time-release blockchain
 with functionality for sending time-locked messages.
 
@@ -13,9 +16,9 @@ import hashlib
 import time
 import json
 import random
-import ecdsa
 from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
+import elgamal
 
 # Security parameter (small for demonstration)
 # P = 2**256 - 2**32 - 977  # A prime number used for modular arithmetic in cryptographic operations
@@ -35,10 +38,8 @@ class Transaction:
         self.sender = sender
         self.recipient = recipient
         self.timestamp = time.time()  # Record current time as transaction timestamp
-        # Encrypt the message with the provided public key
-        self.encrypted_message = self.encrypt_message(message, public_key)
-        # Generate a unique transaction ID based on transaction details
-        self.transaction_id = self.calculate_hash()
+        self.encrypted_message = self.encrypt_message(message, public_key)  # Encrypt the message with the provided public key
+        self.transaction_id = self.calculate_hash()  # Generate a unique transaction ID based on transaction details
     
     def encrypt_message(self, message: str, public_key: Tuple[int, int, int]) -> str:
         """
@@ -160,7 +161,7 @@ class BlockHeader:
             "timestamp": self.timestamp,
             "merkle_root": self.merkle_root,
             "nonce": self.nonce,
-            "public_key": list(self.public_key),  # Convert tuple to list for JSON serialization
+            "public_key": self.public_key,  # Convert tuple to list for JSON serialization
             "public_key_length": self.public_key_length
         }
 
@@ -276,10 +277,11 @@ class TimeReleaseBlockchain:
         - It establishes the initial public key for the chain
         """
         # Generate initial public key components
-        x = random.randint(10000, 99999)
-        y = random.randint(10000, 99999)
-        z = random.randint(10000, 99999)
-        initial_public_key = (x, y, z)
+        # x = random.randint(10000, 99999)
+        # y = random.randint(10000, 99999)
+        # z = random.randint(10000, 99999)
+        # initial_public_key = (x, y, z)
+        initial_public_key = elgamal.generate_keys(seed=0xffffffffffffff,iNumBits=18)
         
         # Create genesis block with index 0 and empty previous hash
         genesis_block = Block(0, "0" * 64, [])
@@ -419,8 +421,8 @@ class TimeReleaseBlockchain:
     
         # Target private key for this block (derived from previous block's public key)
         # In a real implementation, this would be calculated differently
-        x, y, z = prev_public_key
-        target_private_key = (x * y * z) % P # Simple calculation for demonstration
+        # x, y, z = prev_public_key
+        # target_private_key = (x * y * z) % P # Simple calculation for demonstration
     
         # Mining process: find a nonce that produces a hash satisfying the equation
         while True:
@@ -433,14 +435,22 @@ class TimeReleaseBlockchain:
             # Calculate double SHA-256 hash
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
             hash_int = int.from_bytes(hash_bytes, byteorder='big')
+
+            if new_block.header.public_key.h == elgamal.modexp(new_block.header.public_key.g, hash_int ,new_block.header.public_key.p):
+                private_key = new_block.header.public_key.h
+                block_hash = hash_bytes.hex()
+                break
+
+            # if last_block.next_public.h == elgamal.modexp(last_block.next_public.g, hash_header ,last_block.next_public.p):
+            #     break
+
             
             # Check if hash satisfies the private key equation: hash ≡ keyprivate (mod p)
-            if hash_int % P == target_private_key:
-                # Found a valid nonce that satisfies the equation
-                block_hash = hash_bytes.hex()
-                # private_key = hash_int % P
-                private_key = hash_int
-                break
+            # if hash_int % P == target_private_key:
+            #     # Found a valid nonce that satisfies the equation
+            #     block_hash = hash_bytes.hex()
+            #     private_key = hash_int % P
+            #     break
     
         mining_time = time.time() - start_time
         print(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
@@ -597,3 +607,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# TODO
+
+# 1. continuously predict and adjust the mining time of the blockchain network nodes, which can cope with environments where the computing power has been changing unceasingly
+
+# 2. Once we find a valid proof of work, we know we can mine a block so we reward the miner by adding a transaction
