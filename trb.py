@@ -399,18 +399,18 @@ class TimeReleaseBlockchain:
         if block_index + 1 >= len(self.chain):
             return "Message cannot be decrypted yet. Wait for the next block to be mined."
         
-        # extract the private key from the last mined block
-        current_block = self.chain[block_index]
-        current_block_header_string = json.dumps(current_block.header.to_dict(), sort_keys=True)
-        current_block_hash_bytes = hashlib.sha256(hashlib.sha256(current_block_header_string.encode()).digest()).digest()
-        current_block_hash_int = int.from_bytes(current_block_hash_bytes, byteorder='big')
+        # extract the private key from the next mined block
+        next_block = self.chain[block_index + 1] 
+        next_block_header_string = json.dumps(next_block.header.to_dict(), sort_keys=True)
+        next_block_hash_bytes = hashlib.sha256(hashlib.sha256(next_block_header_string.encode()).digest()).digest()
+        next_block_hash_int = int.from_bytes(next_block_hash_bytes, byteorder='big')
         
-        # Create private key from the current block's hash
+        # Create private key from the next block's hash
         private_key = elgamal.PrivateKey(
-            p=current_block.header.public_key.p, 
-            g=current_block.header.public_key.g, 
-            x=current_block_hash_int, 
-            iNumBits=current_block.header.public_key_length
+            p=next_block.header.public_key.p, 
+            g=next_block.header.public_key.g, 
+            x=next_block_hash_int, 
+            iNumBits=next_block.header.public_key_length
         )
         
         # Decrypt the message using the private key
