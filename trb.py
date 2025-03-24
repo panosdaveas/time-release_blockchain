@@ -1,109 +1,39 @@
 """
-Time-Release Blockchain Implementation
+Time-Release Blockchain Implementation with ElGamal Encryption
 
-based on paper by:
-Chae, S.-W., Kim, J.-I., & Park, Y. (2020). Practical Time-Release Blockchain. Electronics, 9(4), 672. https://doi.org/10.3390/electronics9040672
-
-This code provides a simplified implementation of a time-release blockchain
-with functionality for sending time-locked messages.
-
-Key concepts:
-- Time-release cryptography: Messages are encrypted and can only be decrypted after a specified time
-- Blockchain: Decentralized ledger maintaining transaction history
-- Public/private key pairs: Used for encryption and decryption of messages
+This code provides a time-release blockchain implementation using ElGamal encryption.
 """
 import hashlib
 import time
 import json
 import random
-from typing import Dict, List, Tuple, Optional
+import sys
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
+
+# Import ElGamal encryption module
 import elgamal
 
-# Security parameter (small for demonstration)
-# P = 2**256 - 2**32 - 977  # A prime number used for modular arithmetic in cryptographic operations
-P = 2**16 - 2**8 - 55  # A prime number used for modular arithmetic in cryptographic operations
-
 class Transaction:
-    def __init__(self, sender: str, recipient: str, message: str, public_key: Tuple[int, int, int]):
+    def __init__(self, sender: str, recipient: str, message: str, public_key: elgamal.PublicKey):
         """
-        Create a transaction with an encrypted message.
+        Create a transaction with an encrypted message using ElGamal encryption.
         
         Args:
             sender: Sender's identifier
             recipient: Recipient's identifier
             message: Message to encrypt
-            public_key: Public key to encrypt the message with (x, y, z components)
+            public_key: Public key to encrypt the message with
         """
         self.sender = sender
         self.recipient = recipient
         self.timestamp = time.time()  # Record current time as transaction timestamp
-        self.encrypted_message = self.encrypt_message(message, public_key)  # Encrypt the message with the provided public key
-        self.transaction_id = self.calculate_hash()  # Generate a unique transaction ID based on transaction details
-    
-    def encrypt_message(self, message: str, public_key: Tuple[int, int, int]) -> str:
-        """
-        Encrypt a message using the provided public key.
         
-        This is a simplified encryption method for demonstration purposes.
-        In a real implementation, you would use proper encryption algorithms.
+        # Encrypt the message with the provided public key
+        self.encrypted_message = elgamal.encrypt(public_key, message)
         
-        Args:
-            message: Plain text message to encrypt
-            public_key: A tuple of (x, y, z) values used for encryption
-            
-        Returns:
-            Hexadecimal string representation of the encrypted message
-        """
-        # Convert message to bytes for encryption
-        message_bytes = message.encode('utf-8')
-        
-        # Unpack the public key components
-        x, y, z = public_key
-        
-        # Create a simple encryption by transforming each byte
-        encrypted_bytes = bytearray()
-        for i, byte in enumerate(message_bytes):
-            # Mix the byte with public key components
-            # The formula creates a unique transformation for each byte position
-            encrypted_byte = (byte + x + (y * i) + z) % 256  # Modulo 256 to keep in byte range
-            encrypted_bytes.append(encrypted_byte)
-        # Return as a hex string for easy storage and transmission
-        return encrypted_bytes.hex()
-    
-    @staticmethod
-    def decrypt_message(encrypted_hex: str, private_key: int) -> str:
-        """
-        Decrypt a message using the provided private key.
-        
-        This is a simplified decryption method for demonstration purposes.
-        In a real implementation, you would use proper decryption algorithms.
-        
-        Args:
-            encrypted_hex: Hexadecimal string of the encrypted message
-            private_key: Private key integer used for decryption
-            
-        Returns:
-            Decrypted message as a string
-        """
-        # Convert hex string to bytes for decryption
-        encrypted_bytes = bytes.fromhex(encrypted_hex)
-        
-        # Derive decryption parameters from private key
-        # Extract components from different parts of the private key
-        x = private_key % 10000  # Last 4 digits
-        y = (private_key // 10000) % 10000  # Next 4 digits
-        z = (private_key // 100000000) % 10000  # Next 4 digits
-        
-        # Decrypt each byte by reversing the encryption operation
-        decrypted_bytes = bytearray()
-        for i, byte in enumerate(encrypted_bytes):
-            # Reverse the encryption operation from encrypt_message
-            decrypted_byte = (byte - x - (y * i) - z) % 256
-            decrypted_bytes.append(decrypted_byte)
-        
-        # Convert back to string and return
-        return decrypted_bytes.decode('utf-8')
+        # Generate a unique transaction ID based on transaction details
+        self.transaction_id = self.calculate_hash()
     
     def calculate_hash(self) -> str:
         """
@@ -116,6 +46,20 @@ class Transaction:
         transaction_string = f"{self.sender}{self.recipient}{self.timestamp}{self.encrypted_message}"
         # Return SHA-256 hash of the combined string
         return hashlib.sha256(transaction_string.encode()).hexdigest()
+    
+    @staticmethod
+    def decrypt_message(encrypted_message: str, private_key: elgamal.PrivateKey) -> str:
+        """
+        Decrypt a message using the provided private key.
+        
+        Args:
+            encrypted_message: Encrypted message string
+            private_key: Private key for decryption
+            
+        Returns:
+            Decrypted message as a string
+        """
+        return elgamal.decrypt(private_key, encrypted_message)
     
     def to_dict(self) -> Dict:
         """
@@ -145,7 +89,7 @@ class BlockHeader:
     timestamp: float  # Time when the block was created
     merkle_root: str  # Root hash of the Merkle tree of transactions
     nonce: int = 0  # Value that will be adjusted during mining to find a valid hash
-    public_key: Tuple[int, int, int] = field(default_factory=lambda: (0, 0, 0))  # Public key for this block
+    public_key: elgamal.PublicKey = None  # Public key for this block
     public_key_length: int = 256  # Bit length of the keys
     
     def to_dict(self) -> Dict:
@@ -161,7 +105,9 @@ class BlockHeader:
             "timestamp": self.timestamp,
             "merkle_root": self.merkle_root,
             "nonce": self.nonce,
-            "public_key": self.public_key,  # Convert tuple to list for JSON serialization
+            "public_key_h": self.public_key.h,
+            "public_key_g": self.public_key.g,
+            "public_key_p": self.public_key.p,
             "public_key_length": self.public_key_length
         }
 
@@ -254,15 +200,20 @@ class Block:
         }
 
 class TimeReleaseBlockchain:
-    def __init__(self):
+    def __init__(self, seed: int = None, num_bits: int = 20):
         """
         Initialize the blockchain with a genesis block.
         
-        The genesis block is the first block in the chain and has special properties.
+        Args:
+            seed: Random seed for key generation
+            num_bits: Number of bits for prime generation
         """
         self.chain = []  # List to store all blocks
         self.pending_transactions = []  # Transactions waiting to be included in a block
-        # self.difficulty = 4  # Number of leading zeros required in block hash (mining difficulty)
+        
+        # Seed for reproducibility
+        self.seed = seed or random.randint(1, sys.maxsize)
+        self.num_bits = num_bits
         
         # Create the genesis block
         self.create_genesis_block()
@@ -270,59 +221,62 @@ class TimeReleaseBlockchain:
     def create_genesis_block(self):
         """
         Create the genesis block with an initial public key.
-        
-        The genesis block is the first block in the blockchain and has special properties:
-        - It has no previous block (prev_hash is zeros)
-        - It contains no transactions (empty list)
-        - It establishes the initial public key for the chain
         """
-        # Generate initial public key components
-        # x = random.randint(10000, 99999)
-        # y = random.randint(10000, 99999)
-        # z = random.randint(10000, 99999)
-        # initial_public_key = (x, y, z)
-        initial_public_key = elgamal.generate_keys(seed=0xffffffffffffff,iNumBits=18)
+        # Generate initial public key
+        genesis_public_key = elgamal.generate_keys(seed=self.seed, iNumBits=self.num_bits)[0]
         
         # Create genesis block with index 0 and empty previous hash
         genesis_block = Block(0, "0" * 64, [])
-        genesis_block.header.public_key = initial_public_key
+        genesis_block.header.public_key = genesis_public_key
         genesis_block.hash = genesis_block.calculate_hash()
         
         # Add to chain
         self.chain.append(genesis_block)
-        print(f"Genesis block created with public key: {initial_public_key}")
+        print(f"Genesis block created with public key h: {hex(genesis_public_key.h)}")
     
-    def generate_next_public_key(self, previous_public_key: Tuple[int, int, int]) -> Tuple[int, int, int]:
+    def generate_next_public_key(self, previous_public_key: tuple[int, int, int]) -> elgamal.PublicKey:
         """
-        Generate next public key using the previous public key as a seed.
-        
-        This implements a deterministic sequence of public keys where each key
-        is derived from the previous one, allowing future keys to be predicted.
-        
-        Args:
-            previous_public_key: Tuple of (x, y, z) from the previous block
+        Generate next public key with a new seed.
         
         Returns:
-            New public key as a tuple (x, y, z)
+            New ElGamal public key
         """
-        x, y, z = previous_public_key
+        # Use the current time as a seed to generate a new key
+        # This ensures different keys for each block while maintaining determinism
         
-        # Use the previous public key as a seed for the random number generator
-        # This ensures deterministic but unpredictable sequence
-        random.seed(x * y * z)
-        
-        # Generate new public key components
-        new_x = random.randint(10000, 99999)
-        new_y = random.randint(10000, 99999)
-        new_z = random.randint(10000, 99999)
-        
-        return (new_x, new_y, new_z)
+        # new_seed = int(time.time() * 1000000) + random.randint(1, 1000000)
+        new_seed = int(previous_public_key.p + previous_public_key.g + previous_public_key.h)
+        return elgamal.generate_keys(seed=new_seed, iNumBits=self.num_bits)[0]
     
-    def calculate_future_public_keys(self, blocks_ahead: int) -> List[Tuple[int, int, int]]:
+    def add_transaction(self, sender: str, recipient: str, message: str, blocks_ahead: int = 1):
+        """
+        Add a new transaction to the pending transactions list.
+        
+        Args:
+            sender: Sender's identifier
+            recipient: Recipient's identifier
+            message: Message to encrypt
+            blocks_ahead: Number of blocks to wait before the message can be decrypted
+            
+        Returns:
+            Transaction ID of the created transaction
+        """
+        # For time-locked messages, calculate future public keys
+        future_public_keys = self.calculate_future_public_keys(blocks_ahead)
+        
+        if not future_public_keys:
+            raise ValueError("Failed to calculate future public keys")
+        
+        # Encrypt the message with the last future public key
+        final_tx = Transaction(sender, recipient, message, future_public_keys[-1])
+        self.pending_transactions.append(final_tx)
+        
+        print(f"Transaction added: Message will be decryptable after {blocks_ahead} blocks")
+        return final_tx.transaction_id
+    
+    def calculate_future_public_keys(self, blocks_ahead: int) -> List[elgamal.PublicKey]:
         """
         Calculate public keys for future blocks.
-        
-        This allows messages to be encrypted for future blocks even before those blocks exist.
         
         Args:
             blocks_ahead: Number of future blocks to calculate keys for
@@ -336,95 +290,46 @@ class TimeReleaseBlockchain:
         future_public_keys = []
         # Start with the public key from the last block in the chain
         current_public_key = self.chain[-1].header.public_key
-        
-        # Calculate each future public key in sequence
+        # Generate future public keys
         for _ in range(blocks_ahead):
-            next_public_key = self.generate_next_public_key(current_public_key)
-            future_public_keys.append(next_public_key)
-            current_public_key = next_public_key
+            # Generate a new public key
+            future_public_key = self.generate_next_public_key(current_public_key)
+            print(f"Future public key h: {hex(future_public_key.h)}")
+            future_public_keys.append(future_public_key)
+            current_public_key = future_public_key
         
         return future_public_keys
-    
-    def add_transaction(self, sender: str, recipient: str, message: str, blocks_ahead: int = 1):
-        """
-        Add a new transaction to the pending transactions list.
-        
-        For time-release encryption, the message is encrypted with a future public key
-        that will be revealed after the specified number of blocks.
-        
-        Args:
-            sender: Sender's identifier
-            recipient: Recipient's identifier
-            message: Message to encrypt
-            blocks_ahead: Number of blocks to wait before the message can be decrypted
-            
-        Returns:
-            Transaction ID of the created transaction
-        """
-        # Calculate future public keys based on the number of blocks ahead
-        future_public_keys = self.calculate_future_public_keys(blocks_ahead)
-        
-        if not future_public_keys:
-            raise ValueError("Failed to calculate future public keys")
-        
-        # Create encrypted message with nested encryption
-        # Each layer of encryption corresponds to a future block
-        encrypted_message = message
-        for public_key in reversed(future_public_keys):
-            # Apply each layer of encryption, starting from the farthest future block
-            tx = Transaction(sender, recipient, encrypted_message, public_key)
-            encrypted_message = tx.encrypted_message
-        
-        # Add the final transaction to pending transactions
-        final_tx = Transaction(sender, recipient, encrypted_message, future_public_keys[-1])
-        self.pending_transactions.append(final_tx)
-        
-        print(f"Transaction added: Message will be decryptable after {blocks_ahead} blocks")
-        return final_tx.transaction_id
     
     def mine_block(self) -> Block:
         """
         Mine a new block with the pending transactions.
-    
-        The mining process involves finding a nonce value that results in a block hash
-        that satisfies the private key equation:
-        SHA256(SHA256(block_header)) ≡ keyprivate (mod p)
-    
-        In the context of time-release cryptography, the hash of this block will be used
-        as the private key for the previous block, allowing decryption of its messages.
-    
+        
+        The mining process involves finding a nonce that satisfies ElGamal key verification.
+        
         Returns:
             The newly mined block
         """
         if not self.chain:
             raise ValueError("Cannot mine block: blockchain is empty")
-    
+        
         # Get the last block and its public key
         last_block = self.chain[-1]
-        prev_public_key = last_block.header.public_key
-    
+        
         # Create a new block with current pending transactions
         new_block = Block(
             index=len(self.chain),
             prev_hash=last_block.hash,
             transactions=self.pending_transactions.copy()
         )
-    
-        # Generate public key for this block based on the previous block's key
-        new_public_key = self.generate_next_public_key(prev_public_key)
+        
+        # Generate public key for this block
+        new_public_key = self.generate_next_public_key(last_block.header.public_key)
         new_block.header.public_key = new_public_key
-    
-        # For time-release encryption, we need to find a nonce that satisfies:
-        # SHA256(SHA256(block_header)) ≡ keyprivate (mod p)
+        
+        # Mining process: find a nonce that produces a hash satisfying the ElGamal key verification
         print("Mining block...")
         start_time = time.time()
-    
-        # Target private key for this block (derived from previous block's public key)
-        # In a real implementation, this would be calculated differently
-        # x, y, z = prev_public_key
-        # target_private_key = (x * y * z) % P # Simple calculation for demonstration
-    
-        # Mining process: find a nonce that produces a hash satisfying the equation
+        
         while True:
             # Try a new nonce
             new_block.header.nonce += 1
@@ -435,35 +340,29 @@ class TimeReleaseBlockchain:
             # Calculate double SHA-256 hash
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
             hash_int = int.from_bytes(hash_bytes, byteorder='big')
-
-            if new_block.header.public_key.h == elgamal.modexp(new_block.header.public_key.g, hash_int ,new_block.header.public_key.p):
-                private_key = new_block.header.public_key.h
+            
+            # Verify the key esing ElGamal verification
+            if new_block.header.public_key.h == elgamal.modexp(new_block.header.public_key.g, hash_int, new_block.header.public_key.p):
+                private_key = elgamal.PrivateKey(
+                    p=new_block.header.public_key.p, 
+                    g=new_block.header.public_key.g, 
+                    x=hash_int, 
+                    iNumBits=new_block.header.public_key_length
+                )
                 block_hash = hash_bytes.hex()
                 break
-
-            # if last_block.next_public.h == elgamal.modexp(last_block.next_public.g, hash_header ,last_block.next_public.p):
-            #     break
-
-            
-            # Check if hash satisfies the private key equation: hash ≡ keyprivate (mod p)
-            # if hash_int % P == target_private_key:
-            #     # Found a valid nonce that satisfies the equation
-            #     block_hash = hash_bytes.hex()
-            #     private_key = hash_int % P
-            #     break
-    
+        
         mining_time = time.time() - start_time
         print(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
-        print(f"Private key for previous block: {private_key}")
-        # print(f"Hash satisfies: {hash_int % P} ≡ {target_private_key} (mod {P})")
-    
+        print(f"Private key for this block derived from block hash: {private_key.p, private_key.g, private_key.x}")
+        
         # Finalize the block with its hash
         new_block.hash = block_hash
-    
+        
         # Add to chain and clear pending transactions
         self.chain.append(new_block)
         self.pending_transactions = []
-    
+        
         return new_block
     
     def decrypt_message(self, block_index: int, transaction_id: str) -> Optional[str]:
@@ -497,15 +396,22 @@ class TimeReleaseBlockchain:
             return None
         
         # To decrypt, we need the private key from the next block
-        # (which is derived from the next block's hash)
         if block_index + 1 >= len(self.chain):
             return "Message cannot be decrypted yet. Wait for the next block to be mined."
         
-        # Get the next block and extract the private key from its hash
-        next_block = self.chain[block_index + 1]
-        next_block_header_string = json.dumps(next_block.header.to_dict(), sort_keys=True)
-        # Calculate the private key from the next block's header
-        private_key = int(hashlib.sha256(hashlib.sha256(next_block_header_string.encode()).digest()).hexdigest(), 16) % P
+        # extract the private key from the last mined block
+        current_block = self.chain[block_index]
+        current_block_header_string = json.dumps(current_block.header.to_dict(), sort_keys=True)
+        current_block_hash_bytes = hashlib.sha256(hashlib.sha256(current_block_header_string.encode()).digest()).digest()
+        current_block_hash_int = int.from_bytes(current_block_hash_bytes, byteorder='big')
+        
+        # Create private key from the current block's hash
+        private_key = elgamal.PrivateKey(
+            p=current_block.header.public_key.p, 
+            g=current_block.header.public_key.g, 
+            x=current_block_hash_int, 
+            iNumBits=current_block.header.public_key_length
+        )
         
         # Decrypt the message using the private key
         try:
@@ -549,7 +455,7 @@ def main():
     4. Attempts to decrypt messages at different points
     """
     # Create a blockchain
-    blockchain = TimeReleaseBlockchain()
+    blockchain = TimeReleaseBlockchain(seed=833050814021254693158343911234888353695402778102174580258852673738983005, num_bits=20)
     
     # Add some transactions
     # Message will be decryptable after 1 block
@@ -588,28 +494,25 @@ def main():
     print(f"Decrypted message: {decrypted_message}")
     
     # Add another transaction
-    tx3_id = blockchain.add_transaction("Eve", "Adam", "Another time-locked message!", 1)
+    tx3_id = blockchain.add_transaction("Eve", "Adam", "Another time locked message", 1)
     
     # Mine another block (Block #3)
     print("\nMining block 3...")
     block3 = blockchain.mine_block()
+
+     # Should succeed for tx2_id
+    print("\nTrying to decrypt second message:")
+    decrypted_message = blockchain.decrypt_message(1, tx2_id)
+    print(f"Decrypted message: {decrypted_message}")
     
     # Print the blockchain summary
     print("\nBlockchain:")
     for i, block in enumerate(blockchain.chain):
         print(f"Block {i}: {block.hash}")
-        print(f"  Public Key: {block.header.public_key}")
+        print(f"  Public Key h: {hex(block.header.public_key.h)}")
         print(f"  Transactions: {len(block.transactions)}")
-        # for j, transaction in enumerate(block.transactions):
-        #     print(f"    Transaction_id {j}: {transaction.transaction_id}")
-        #     print(f"    Transaction_sender_recipient {j}: {transaction.sender} -> {transaction.recipient}")
-        #     print(f"    Transaction_encrypted_message {j}: {transaction.encrypted_message}")
+        # for tx in block.transactions:
+        #     print(f"    {tx.sender} -> {tx.recipient}: {tx.encrypted_message}")
 
 if __name__ == "__main__":
     main()
-
-# TODO
-
-# 1. continuously predict and adjust the mining time of the blockchain network nodes, which can cope with environments where the computing power has been changing unceasingly
-
-# 2. Once we find a valid proof of work, we know we can mine a block so we reward the miner by adding a transaction
