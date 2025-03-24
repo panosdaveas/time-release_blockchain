@@ -420,7 +420,7 @@ class TimeReleaseBlockchain:
         # Target private key for this block (derived from previous block's public key)
         # In a real implementation, this would be calculated differently
         x, y, z = prev_public_key
-        target_private_key = (x * y * z) % P
+        target_private_key = (x * y * z) % P # Simple calculation for demonstration
     
         # Mining process: find a nonce that produces a hash satisfying the equation
         while True:
