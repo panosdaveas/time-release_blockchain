@@ -90,9 +90,9 @@ class Transaction:
         
         # Derive decryption parameters from private key
         # Extract components from different parts of the private key
-        x = private_key % 10000  # Last 4 digits
-        y = (private_key // 10000) % 10000  # Next 4 digits
-        z = (private_key // 100000000) % 10000  # Next 4 digits
+        x = private_key % 100000  # Last 4 digits
+        y = (private_key // 10000) % 100000  # Next 4 digits
+        z = (private_key // 100000000) % 100000  # Next 4 digits
         
         # Decrypt each byte by reversing the encryption operation
         decrypted_bytes = bytearray()
@@ -438,8 +438,7 @@ class TimeReleaseBlockchain:
             if hash_int % P == target_private_key:
                 # Found a valid nonce that satisfies the equation
                 block_hash = hash_bytes.hex()
-                # private_key = hash_int % P
-                private_key = hash_int
+                private_key = hash_int % P
                 break
     
         mining_time = time.time() - start_time
