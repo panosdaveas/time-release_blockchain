@@ -9,10 +9,12 @@ import json
 import random
 import sys
 from typing import Dict, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # Import ElGamal encryption module
 import elgamal
+
+Num_Bits = 20 # Number of bits for prime generation
 
 class Transaction:
     def __init__(self, sender: str, recipient: str, message: str, public_key: elgamal.PublicKey):
@@ -200,7 +202,7 @@ class Block:
         }
 
 class TimeReleaseBlockchain:
-    def __init__(self, seed: int = None, num_bits: int = 20):
+    def __init__(self, seed: int = None, num_bits: int = Num_Bits):
         """
         Initialize the blockchain with a genesis block.
         
@@ -262,7 +264,7 @@ class TimeReleaseBlockchain:
             Transaction ID of the created transaction
         """
         # For time-locked messages, calculate future public keys
-        future_public_keys = self.calculate_future_public_keys(blocks_ahead)
+        future_public_keys = self.calculate_future_public_keys(blocks_ahead + 1)
         
         if not future_public_keys:
             raise ValueError("Failed to calculate future public keys")
@@ -272,6 +274,7 @@ class TimeReleaseBlockchain:
         self.pending_transactions.append(final_tx)
         
         print(f"Transaction added: Message will be decryptable after {blocks_ahead} blocks")
+        print (f"Transaction encrypted with public key h: {hex(future_public_keys[-1].h)}")
         return final_tx.transaction_id
     
     def calculate_future_public_keys(self, blocks_ahead: int) -> List[elgamal.PublicKey]:
@@ -289,17 +292,43 @@ class TimeReleaseBlockchain:
         
         future_public_keys = []
         # Start with the public key from the last block in the chain
+        # in each generation, the previous public key is used to generate the next one
         current_public_key = self.chain[-1].header.public_key
         # Generate future public keys
         for _ in range(blocks_ahead):
             # Generate a new public key
             future_public_key = self.generate_next_public_key(current_public_key)
-            print(f"Future public key h: {hex(future_public_key.h)}")
+            # print(f"Future public key h: {hex(future_public_key.h)}")
             future_public_keys.append(future_public_key)
             current_public_key = future_public_key
         
         return future_public_keys
     
+    def get_transaction_by_id(self, block_index: int, transaction_id: str) -> Optional[Transaction]:
+        """
+        Get a transaction by its ID from the pending transactions.
+        
+        Args:
+            transaction_id: ID of the transaction to retrieve
+            
+        Returns:
+            Transaction object if found, None otherwise
+        """
+        if block_index >= len(self.chain):
+            return None
+        
+        # Get the block containing the transaction
+        block = self.chain[block_index]
+        
+        # Find the transaction in the block
+        transaction = None
+        for tx in block.transactions:
+            if tx.transaction_id == transaction_id:
+                return tx
+        
+        if not transaction:
+            return None
+
     def mine_block(self) -> Block:
         """
         Mine a new block with the pending transactions.
@@ -338,9 +367,10 @@ class TimeReleaseBlockchain:
             header_string = json.dumps(new_block.header.to_dict(), sort_keys=True)
             
             # Calculate double SHA-256 hash
-            # TODO add difficulty level mod p === % (last_block.difficult-1) + 1
+            # TODO add difficulty level mod p === % (last_block.difficulty) + 1
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
-            hash_int = int.from_bytes(hash_bytes, byteorder='big')
+            # if mod p here, also mod p in the decrypt function!
+            hash_int = int.from_bytes(hash_bytes, byteorder='big') % new_block.header.public_key.p
             
             # Verify the key esing ElGamal verification
             if new_block.header.public_key.h == elgamal.modexp(new_block.header.public_key.g, hash_int, new_block.header.public_key.p):
@@ -355,7 +385,8 @@ class TimeReleaseBlockchain:
         
         mining_time = time.time() - start_time
         print(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
-        print(f"Private key for this block derived from block hash: {private_key.p, private_key.g, private_key.x}")
+        print(f"Current block public key h: {hex(new_block.header.public_key.h)}")
+        print(f"Private key x for the previous block derived from block hash: {hex(private_key.x)}")
         
         # Finalize the block with its hash
         new_block.hash = block_hash
@@ -366,7 +397,7 @@ class TimeReleaseBlockchain:
         
         return new_block
     
-    def decrypt_message(self, block_index: int, transaction_id: str) -> Optional[str]:
+    def decrypt_message(self, block_index: int, block_ahead: int, transaction_id: str) -> Optional[str]:
         """
         Attempt to decrypt a message from a specific block and transaction.
         
@@ -397,14 +428,15 @@ class TimeReleaseBlockchain:
             return None
         
         # To decrypt, we need the private key from the next block
-        if block_index + 1 >= len(self.chain):
-            return "Message cannot be decrypted yet. Wait for the next block to be mined."
+        if block_index + block_ahead >= len(self.chain):
+            return f"Message cannot be decrypted yet. Message will be decryptable after {abs(block_ahead - block_index + 1)} blocks."
         
         # extract the private key from the next mined block
-        next_block = self.chain[block_index + 1] 
+        next_block = self.chain[block_index + block_ahead] 
+        # next_block = self.get_block_by_index(-1)
         next_block_header_string = json.dumps(next_block.header.to_dict(), sort_keys=True)
         next_block_hash_bytes = hashlib.sha256(hashlib.sha256(next_block_header_string.encode()).digest()).digest()
-        next_block_hash_int = int.from_bytes(next_block_hash_bytes, byteorder='big')
+        next_block_hash_int = int.from_bytes(next_block_hash_bytes, byteorder='big') % next_block.header.public_key.p
         
         # Create private key from the next block's hash
         private_key = elgamal.PrivateKey(
@@ -416,6 +448,7 @@ class TimeReleaseBlockchain:
         
         # Decrypt the message using the private key
         try:
+            print(f"Decrypting message with private key: {hex(private_key.x)}")
             decrypted_message = Transaction.decrypt_message(transaction.encrypted_message, private_key)
             return decrypted_message
         except Exception as e:
@@ -432,7 +465,7 @@ class TimeReleaseBlockchain:
             Dictionary representation of the block if found, None otherwise
         """
         if 0 <= index < len(self.chain):
-            return self.chain[index].to_dict()
+            return self.chain[index]
         return None
     
     def get_chain(self) -> List[Dict]:
@@ -456,7 +489,7 @@ def main():
     4. Attempts to decrypt messages at different points
     """
     # Create a blockchain
-    blockchain = TimeReleaseBlockchain(seed=833050814021254693158343911234888353695402778102174580258852673738983005, num_bits=20)
+    blockchain = TimeReleaseBlockchain(seed=833050814021254693158343911234888353695402778102174580258852673738983005, num_bits=Num_Bits)
     
     # Add some transactions
     # Message will be decryptable after 1 block
@@ -471,12 +504,12 @@ def main():
     
     # Try to decrypt the messages (should fail for tx1_id since we need one more block)
     print("\nTrying to decrypt first message:")
-    decrypted_message = blockchain.decrypt_message(1, tx1_id)
+    decrypted_message = blockchain.decrypt_message(1, 1, tx1_id)
     print(f"Decrypted message: {decrypted_message}")
     
     # Should fail for tx2_id since we need two more blocks
     print("\nTrying to decrypt second message:")
-    decrypted_message = blockchain.decrypt_message(1, tx2_id)
+    decrypted_message = blockchain.decrypt_message(1, 2, tx2_id)
     print(f"Decrypted message: {decrypted_message}")
     
     # Mine another block (Block #2)
@@ -486,16 +519,16 @@ def main():
     # Try to decrypt the messages again
     # Should succeed for tx1_id now
     print("\nTrying to decrypt first message:")
-    decrypted_message = blockchain.decrypt_message(1, tx1_id)
-    print(f"Decrypted message: {decrypted_message}")
+    decrypted_message = blockchain.decrypt_message(1, 1, tx1_id)
+    print(f"Decrypted message: {blockchain.get_transaction_by_id(1, tx1_id).sender} -> {blockchain.get_transaction_by_id(1, tx1_id).recipient}: {decrypted_message}")
     
     # Should still fail for tx2_id
     print("\nTrying to decrypt second message:")
-    decrypted_message = blockchain.decrypt_message(1, tx2_id)
+    decrypted_message = blockchain.decrypt_message(1, 2, tx2_id)
     print(f"Decrypted message: {decrypted_message}")
     
     # Add another transaction
-    tx3_id = blockchain.add_transaction("Eve", "Adam", "Another time locked message", 1)
+    tx3_id = blockchain.add_transaction("Eve", "Frank", "Another time locked message", 1)
     
     # Mine another block (Block #3)
     print("\nMining block 3...")
@@ -503,8 +536,22 @@ def main():
 
      # Should succeed for tx2_id
     print("\nTrying to decrypt second message:")
-    decrypted_message = blockchain.decrypt_message(1, tx2_id)
+    decrypted_message = blockchain.decrypt_message(1, 2, tx2_id)
+    print(f"Decrypted message: {blockchain.get_transaction_by_id(1, tx2_id).sender} -> {blockchain.get_transaction_by_id(1, tx2_id).recipient}: {decrypted_message}")
+
+     # Should fail for tx3_id
+    print("\nTrying to decrypt third message:")
+    decrypted_message = blockchain.decrypt_message(3, 1, tx3_id)
     print(f"Decrypted message: {decrypted_message}")
+
+     # Mine another block (Block #4)
+    print("\nMining block 4...")
+    block4 = blockchain.mine_block()
+
+    # Should succeed for tx3_id
+    print("\nTrying to decrypt third message:")
+    decrypted_message = blockchain.decrypt_message(3, 1, tx3_id)
+    print(f"Decrypted message: {blockchain.get_transaction_by_id(3, tx3_id).sender} -> {blockchain.get_transaction_by_id(3, tx3_id).recipient}: {decrypted_message}")
     
     # Print the blockchain summary
     print("\nBlockchain:")

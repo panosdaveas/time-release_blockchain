@@ -2,6 +2,8 @@ import random
 import math
 import sys
 
+Confidence=32 # number of iterations for the Solovay-Strassen primality test
+
 class PrivateKey(object):
     def __init__(self, p=None, g=None, x=None, iNumBits=0):
         self.p = p
@@ -211,7 +213,7 @@ def decode(aiPlaintext, iNumBits):
 		return decodedText
 
 #generates public key K1 (p, g, h) and private key K2 (p, g, x)
-def generate_keys(seed, iNumBits, iConfidence=32):
+def generate_keys(seed, iNumBits, iConfidence=Confidence):
     random.seed(seed)
     p = find_prime(iNumBits, iConfidence, seed)
     g = find_primitive_root(p, seed)
