@@ -42,70 +42,6 @@ class Transaction:
         # Generate a unique transaction ID based on transaction details
         self.transaction_id = self.calculate_hash()
     
-    def encrypt_message(self, message: str, public_key: tuple[int, int, int]) -> str:
-        """
-        Encrypt a message using the provided public key.
-        
-        This is a simplified encryption method for demonstration purposes.
-        In a real implementation, you would use proper encryption algorithms.
-        
-        Args:
-            message: Plain text message to encrypt
-            public_key: A tuple of (x, y, z) values used for encryption
-            
-        Returns:
-            Hexadecimal string representation of the encrypted message
-        """
-        # Convert message to bytes for encryption
-        message_bytes = message.encode('utf-8')
-        
-        # Unpack the public key components
-        x, y, z = public_key
-        
-        # Create a simple encryption by transforming each byte
-        encrypted_bytes = bytearray()
-        for i, byte in enumerate(message_bytes):
-            # Mix the byte with public key components
-            # The formula creates a unique transformation for each byte position
-            encrypted_byte = (byte + x + (y * i) + z) % 256  # Modulo 256 to keep in byte range
-            encrypted_bytes.append(encrypted_byte)
-        # Return as a hex string for easy storage and transmission
-        return encrypted_bytes.hex()
-    
-    @staticmethod
-    def decrypt_message(encrypted_hex: str, private_key: int) -> str:
-        """
-        Decrypt a message using the provided private key.
-        
-        This is a simplified decryption method for demonstration purposes.
-        In a real implementation, you would use proper decryption algorithms.
-        
-        Args:
-            encrypted_hex: Hexadecimal string of the encrypted message
-            private_key: Private key integer used for decryption
-            
-        Returns:
-            Decrypted message as a string
-        """
-        # Convert hex string to bytes for decryption
-        encrypted_bytes = bytes.fromhex(encrypted_hex)
-        
-        # Derive decryption parameters from private key
-        # Extract components from different parts of the private key
-        x = private_key % 10000  # Last 4 digits
-        y = (private_key // 10000) % 10000  # Next 4 digits
-        z = (private_key // 100000000) % 10000  # Next 4 digits
-        
-        # Decrypt each byte by reversing the encryption operation
-        decrypted_bytes = bytearray()
-        for i, byte in enumerate(encrypted_bytes):
-            # Reverse the encryption operation from encrypt_message
-            decrypted_byte = (byte - x - (y * i) - z) % 256
-            decrypted_bytes.append(decrypted_byte)
-        
-        # Convert back to string and return
-        return decrypted_bytes.decode('utf-8')
-    
     def calculate_hash(self) -> str:
         """
         Calculate a unique hash for this transaction.
@@ -450,8 +386,6 @@ class TimeReleaseBlockchain:
                     iNumBits=new_block.header.public_key_length
                 )
                 block_hash = hash_bytes.hex()
-                # private_key = hash_int % P
-                private_key = hash_int
                 break
         
         mining_time = time.time() - start_time
