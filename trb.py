@@ -14,7 +14,12 @@ from dataclasses import dataclass
 # Import ElGamal encryption module
 import elgamal
 
-Num_Bits = 20 # Number of bits for prime generation
+Public_Key_Length = 256 # Number of bits for public key generation
+Prime_Num_Bits = 20 # Number of bits for prime generation
+#Recommended values:
+# 2048 bits → Secure for now.
+# 3072 bits → Recommended for long-term security.
+# 4096 bits+ → Extra security, but slower operations.
 
 class Transaction:
     def __init__(self, sender: str, recipient: str, message: str, public_key: elgamal.PublicKey):
@@ -92,7 +97,7 @@ class BlockHeader:
     merkle_root: str  # Root hash of the Merkle tree of transactions
     nonce: int = 0  # Value that will be adjusted during mining to find a valid hash
     public_key: elgamal.PublicKey = None  # Public key for this block
-    public_key_length: int = 256  # Bit length of the keys
+    public_key_length: int = Public_Key_Length  # Bit length of the keys
     
     def to_dict(self) -> Dict:
         """
@@ -202,7 +207,7 @@ class Block:
         }
 
 class TimeReleaseBlockchain:
-    def __init__(self, seed: int = None, num_bits: int = Num_Bits):
+    def __init__(self, seed: int = None, num_bits: int = Prime_Num_Bits):
         """
         Initialize the blockchain with a genesis block.
         
@@ -367,7 +372,7 @@ class TimeReleaseBlockchain:
             header_string = json.dumps(new_block.header.to_dict(), sort_keys=True)
             
             # Calculate double SHA-256 hash
-            # TODO add difficulty level mod p === % (last_block.difficulty) + 1
+            # TODO adjust difficulty level mod p === % (last_block.difficulty) + 1
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
             # if mod p here, also mod p in the decrypt function!
             hash_int = int.from_bytes(hash_bytes, byteorder='big') % new_block.header.public_key.p
@@ -429,7 +434,7 @@ class TimeReleaseBlockchain:
         
         # To decrypt, we need the private key from the next block
         if block_index + block_ahead >= len(self.chain):
-            return f"Message cannot be decrypted yet. Message will be decryptable after {abs(block_ahead - block_index + 1)} blocks."
+            return f"Message cannot be decrypted yet. Message will be decryptable after {abs(block_ahead + block_index - len(self.chain) + 1)} blocks."
         
         # extract the private key from the next mined block
         next_block = self.chain[block_index + block_ahead] 
@@ -489,7 +494,7 @@ def main():
     4. Attempts to decrypt messages at different points
     """
     # Create a blockchain
-    blockchain = TimeReleaseBlockchain(seed=833050814021254693158343911234888353695402778102174580258852673738983005, num_bits=Num_Bits)
+    blockchain = TimeReleaseBlockchain(seed=833050814021254693158343911234888353695402778102174580258852673738983005, num_bits=Prime_Num_Bits)
     
     # Add some transactions
     # Message will be decryptable after 1 block

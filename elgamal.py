@@ -2,7 +2,11 @@ import random
 import math
 import sys
 
-Confidence=32 # number of iterations for the Solovay-Strassen primality test
+Prime_Confidence=32 # number of iterations for the Solovay-Strassen prime test
+#Recommended values:
+# 40 rounds → Generally considered safe (~2^{-80} probability of error).
+# 64 rounds → High confidence for long-term use.
+# 128+ rounds → Ultra-high security (often overkill).
 
 class PrivateKey(object):
     def __init__(self, p=None, g=None, x=None, iNumBits=0):
@@ -213,7 +217,7 @@ def decode(aiPlaintext, iNumBits):
 		return decodedText
 
 #generates public key K1 (p, g, h) and private key K2 (p, g, x)
-def generate_keys(seed, iNumBits, iConfidence=Confidence):
+def generate_keys(seed, iNumBits, iConfidence=Prime_Confidence):
     random.seed(seed)
     p = find_prime(iNumBits, iConfidence, seed)
     g = find_primitive_root(p, seed)
