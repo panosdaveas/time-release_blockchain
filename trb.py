@@ -338,6 +338,7 @@ class TimeReleaseBlockchain:
             header_string = json.dumps(new_block.header.to_dict(), sort_keys=True)
             
             # Calculate double SHA-256 hash
+            # TODO add difficulty level mod p === % (last_block.difficult-1) + 1
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
             hash_int = int.from_bytes(hash_bytes, byteorder='big')
             
