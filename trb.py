@@ -42,7 +42,7 @@ class Transaction:
         # Generate a unique transaction ID based on transaction details
         self.transaction_id = self.calculate_hash()
     
-    def encrypt_message(self, message: str, public_key: Tuple[int, int, int]) -> str:
+    def encrypt_message(self, message: str, public_key: tuple[int, int, int]) -> str:
         """
         Encrypt a message using the provided public key.
         
