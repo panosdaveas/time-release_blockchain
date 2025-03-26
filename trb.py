@@ -10,12 +10,14 @@ import random
 import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass
+from rich import print, pretty
+from console_print import print_blockchain
 
 # Import ElGamal encryption module
 import elgamal
 
 Public_Key_Length = 256 # Number of bits for public key generation
-Prime_Num_Bits = 20 # Number of bits for prime generation
+Prime_Num_Bits = 10 # Number of bits for prime generation
 #Recommended values:
 # 2048 bits → Secure for now.
 # 3072 bits → Recommended for long-term security.
@@ -560,12 +562,7 @@ def main():
     
     # Print the blockchain summary
     print("\nBlockchain:")
-    for i, block in enumerate(blockchain.chain):
-        print(f"Block {i}: {block.hash}")
-        print(f"  Public Key h: {hex(block.header.public_key.h)}")
-        print(f"  Transactions: {len(block.transactions)}")
-        # for tx in block.transactions:
-        #     print(f"    {tx.sender} -> {tx.recipient}: {tx.encrypted_message}")
+    print_blockchain(blockchain.chain)
 
 if __name__ == "__main__":
     main()
