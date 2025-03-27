@@ -2,13 +2,17 @@ from rich import print as rprint
 from rich.pretty import pprint
 from rich.pretty import Pretty
 from rich.panel import Panel
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.table import Column, Table
 from rich.tree import Tree
 from rich.layout import Layout
 from rich import print_json
 from rich.text import Text
 from rich.containers import Lines, Renderables
+import logging
+from rich.logging import RichHandler
+from rich.live import Live
+
 # from rich import print_json
 
 Max_String = 21
@@ -47,8 +51,8 @@ def body_grid(transactions):
     return grid
 
 def block_grid(block):
-    panel_header = Panel(header_grid(block.header), title="[bold]Header")
-    panel_body = Panel(body_grid(block.transactions), title="[bold]Body")
+    panel_header = Panel(header_grid(block.header), title="[bold]Header", title_align="left")
+    panel_body = Panel(body_grid(block.transactions), title="[bold]Body", title_align="left")
     grid = Table.grid(expand=True)
     grid.add_column()
     grid.add_row(panel_header)
@@ -75,12 +79,12 @@ def current_block(blockchain):
 def tx_data(tx, index):
     tx_data = {
         index: [
-            f"ID: {tx.transaction_id}",
+            f"ID: {tx.transaction_id[:8]}...{tx.transaction_id[-8:]}",
             {
                 "Sender": f"{tx.sender}",
                 "Receiver": f"{tx.recipient}",
                 "Timestamp": f"{tx.timestamp}",
-                "tx.encrypted_message": f"{tx.encrypted_message[:6]}...{tx.encrypted_message[-6:]}"
+                "tx.encrypted_message": f"{tx.encrypted_message[:8]}...{tx.encrypted_message[-8:]}"
             }
         ]
     }
@@ -92,21 +96,55 @@ def transactions_data(transactions):
         data.update(tx_data(tx, i))
     return data
 
+def print_blockchain(blockchain):
+    rprint(blockchain_grid(blockchain))
+
+def comparison(renderable1: RenderableType, renderable2: RenderableType) -> Table:
+        table = Table(show_header=False, pad_edge=False, box=None, expand=True)
+        table.add_column("1", ratio=1)
+        table.add_column("2", ratio=2)
+        table.add_row(renderable1, renderable2)
+        return table
+
+def update_logs(str):
+    text = Text("Logging:")
+    # text.stylize("bold magenta", 0, 6)
+    text.append(str, style="bold red")
+    return text
+
+def upper_layout_content():
+    return Panel(update_logs("logging"), expand=True)
+
+def table_content():
+    table = Table.grid(padding=1, pad_edge=True)
+    table.add_column("Feature", no_wrap=True, justify="center", style="bold red")
+    table.add_column("Demonstration")
+    table.add_row(
+        "Syntax\nhighlighting\n&\npretty\nprinting",
+        comparison(
+            Syntax(code, "python3", line_numbers=True, indent_guides=True),
+            Pretty(transactions_data(blo), indent_guides=True),
+        ),
+    )
+    return table
+
 # print the blockchain from trb.py file in a pretty format
-def print_blockchain(blockchain): 
-    pprint(blockchain_grid(blockchain), expand_all=expand_all_flag, max_string=Max_String)
-    upper_layout = Panel("",title="Time-Release Blockchain", subtitle="beta version")
-    tx = Panel(Pretty(transactions_data(blockchain[1].transactions), indent_guides=True), title="Transactions")
+def print_layout(blockchain): 
+    rprint(blockchain_grid(blockchain))
+    upper_layout = Panel(update_logs(str="Logging_data"),title="Time-Release Blockchain", subtitle="beta version", expand=True)
+    tx = Panel(Pretty(transactions_data(blockchain[1].transactions), indent_guides=True), title="Transactions", expand=True)
     layout.split_column(
     Layout(upper_layout, name="upper"),
     Layout("", name="lower")
     )
+    # layout["upper"].update(update_logs(""))
     layout["lower"].split_row(
     Layout(current_block(blockchain), name="left"),
     Layout(tx, name="right"),
     )
     layout["lower"]["right"].ratio = 2
     rprint(layout)
+    # rprint(comparison(current_block(blockchain), tx))
 
 def main():
     pass

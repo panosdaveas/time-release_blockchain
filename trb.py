@@ -11,7 +11,7 @@ import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 from rich import print, pretty
-from console_print import print_blockchain
+from console_print import print_layout, update_logs
 
 # Import ElGamal encryption module
 import elgamal
@@ -281,7 +281,7 @@ class TimeReleaseBlockchain:
         self.pending_transactions.append(final_tx)
         
         print(f"Transaction added: Message will be decryptable after {blocks_ahead} blocks")
-        print (f"Transaction encrypted with public key h: {hex(future_public_keys[-1].h)}")
+        print(f"Transaction encrypted with public key h: {hex(future_public_keys[-1].h)}")
         return final_tx.transaction_id
     
     def calculate_future_public_keys(self, blocks_ahead: int) -> List[elgamal.PublicKey]:
@@ -562,7 +562,7 @@ def main():
     
     # Print the blockchain summary
     print("\nBlockchain:")
-    print_blockchain(blockchain.chain)
+    print_layout(blockchain.chain)
 
 if __name__ == "__main__":
     main()
