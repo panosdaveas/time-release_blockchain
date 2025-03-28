@@ -12,6 +12,7 @@ from rich.containers import Lines, Renderables
 import logging
 from rich.logging import RichHandler
 from rich.live import Live
+from typing import List
 
 # from rich import print_json
 
@@ -21,8 +22,9 @@ console = Console()
 layout = Layout()
 text = Text("foo")
 renderables = Renderables([text])
+log_messages = []
 
-def header_grid(header):
+def header_grid(header) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
     grid.add_column(justify="right", max_width=24, style="bold")
@@ -35,7 +37,7 @@ def header_grid(header):
     grid.add_row("Public Key Length", f"{header.public_key_length} bits")
     return grid
 
-def body_grid(transactions):
+def body_grid(transactions) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
     grid.add_column(justify="right", max_width=16, style="bold", no_wrap=True)
@@ -50,7 +52,7 @@ def body_grid(transactions):
         grid.add_row("tx.encrypted_message", f"{tx.encrypted_message}")
     return grid
 
-def block_grid(block):
+def block_grid(block) -> Table:
     panel_header = Panel(header_grid(block.header), title="[bold]Header", title_align="left")
     panel_body = Panel(body_grid(block.transactions), title="[bold]Body", title_align="left")
     grid = Table.grid(expand=True)
@@ -59,7 +61,7 @@ def block_grid(block):
     grid.add_row(panel_body)
     return grid
 
-def blockchain_grid(blockchain):
+def blockchain_grid(blockchain) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
     for block in blockchain:
@@ -69,14 +71,14 @@ def blockchain_grid(blockchain):
             grid.add_row(Panel.fit(block_grid(block),title=f"BLOCK [bold red]{block.header.index}", subtitle=""))
     return grid
 
-def current_block(blockchain):
+def current_block(blockchain) -> Panel:
     block = blockchain[-1]
     if block.header.index == 0:
         return Panel.fit(block_grid(block),title=f"BLOCK [bold red]{block.header.index}", subtitle="Genesis Block")
     else:
         return Panel.fit(block_grid(block),title=f"BLOCK [bold red]{block.header.index}", subtitle="Latest Block")
 
-def tx_data(tx, index):
+def tx_data(tx, index) -> dict:
     tx_data = {
         index: [
             f"ID: {tx.transaction_id[:8]}...{tx.transaction_id[-8:]}",
@@ -90,11 +92,14 @@ def tx_data(tx, index):
     }
     return tx_data
 
-def transactions_data(transactions):
+def transactions_data(transactions) -> dict:
     data = dict()
     for i, tx in enumerate(transactions):
         data.update(tx_data(tx, i))
     return data
+
+def tx_panel(blockchain) -> Panel:
+    return Panel(Pretty(transactions_data(blockchain[-1].transactions), indent_guides=True), title="Transactions", expand=True)
 
 def print_blockchain(blockchain):
     rprint(blockchain_grid(blockchain))
@@ -106,7 +111,7 @@ def comparison(renderable1: RenderableType, renderable2: RenderableType) -> Tabl
         table.add_row(renderable1, renderable2)
         return table
 
-def update_logs(str):
+def update_logs(str) -> Text:
     text = Text("Logging:")
     # text.stylize("bold magenta", 0, 6)
     text.append(str, style="bold red")
@@ -115,36 +120,93 @@ def update_logs(str):
 def upper_layout_content():
     return Panel(update_logs("logging"), expand=True)
 
-def table_content():
+def table_content() -> Table:
     table = Table.grid(padding=1, pad_edge=True)
     table.add_column("Feature", no_wrap=True, justify="center", style="bold red")
     table.add_column("Demonstration")
     table.add_row(
         "Syntax\nhighlighting\n&\npretty\nprinting",
         comparison(
-            Syntax(code, "python3", line_numbers=True, indent_guides=True),
-            Pretty(transactions_data(blo), indent_guides=True),
         ),
     )
     return table
 
-# print the blockchain from trb.py file in a pretty format
-def print_layout(blockchain): 
-    rprint(blockchain_grid(blockchain))
-    upper_layout = Panel(update_logs(str="Logging_data"),title="Time-Release Blockchain", subtitle="beta version", expand=True)
-    tx = Panel(Pretty(transactions_data(blockchain[1].transactions), indent_guides=True), title="Transactions", expand=True)
+def layout_content() -> Layout:
     layout.split_column(
-    Layout(upper_layout, name="upper"),
+    Layout("", name="upper"),
     Layout("", name="lower")
     )
-    # layout["upper"].update(update_logs(""))
     layout["lower"].split_row(
-    Layout(current_block(blockchain), name="left"),
-    Layout(tx, name="right"),
+    Layout("", name="left"),
+    Layout("", name="right", ratio=2),
     )
-    layout["lower"]["right"].ratio = 2
-    rprint(layout)
+    return layout
+
+def update_logs(new_message: str = None) -> Text:
+    """
+    Update and retrieve log messages.
+    
+    Args:
+        new_message: Optional new message to add to logs
+    
+    Returns:
+        Rich Text object with formatted log messages
+    """
+    global log_messages
+    
+    # Add new message if provided
+    if new_message:
+        log_messages.append(new_message)
+    
+    # Keep only the last 10 log messages
+    if len(log_messages) > 10:
+        log_messages = log_messages[-10:]
+    
+    # Create a Text object with log messages
+    log_text = Text()
+    for msg in log_messages:
+        log_text.append(msg + "\n", style="dim")
+    
+    return log_text
+
+def log_message(message: str):
+    """
+    Log a message to be displayed in the upper layout.
+    
+    Args:
+        message: Message to log
+    """
+    update_logs(message)
+
+# print the blockchain from trb.py file in a pretty format
+def print_layout(blockchain): 
+    # rprint(blockchain_grid(blockchain))
+    def update_display():
+        upper_layout = Panel(update_logs(),title="Time-Release Blockchain", subtitle="beta version", expand=True)
+        layout = layout_content()
+        layout["upper"].update(upper_layout)
+        layout["lower"]["left"].update((current_block(blockchain))),
+        layout["lower"]["right"].update((tx_panel(blockchain))),
+        return layout
+        # rprint(layout)
     # rprint(comparison(current_block(blockchain), tx))
+
+   # Use Live to update the display dynamically
+    live = Live(update_display(), refresh_per_second=4, vertical_overflow="crop")
+    live.start()
+
+    def update_callback(updated_blockchain: List):
+        """
+        Update the live display with the new blockchain state
+        
+        Args:
+            updated_blockchain: The current state of the blockchain
+        """
+        global blockchain  # Use global to modify the reference
+        blockchain = updated_blockchain
+        live.update(update_display())
+
+    return update_callback
 
 def main():
     pass
