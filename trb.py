@@ -540,7 +540,6 @@ def main():
     update_display(blockchain.chain, mining_progress)
 
     # block1 = blockchain.mine_block()
-    # update_display(blockchain.chain)  # Update the display after mining
     
     # Try to decrypt the messages (should fail for tx1_id since we need one more block)
     # log_message("\nTrying to decrypt first message:")
@@ -554,8 +553,8 @@ def main():
     
     # Mine another block (Block #2)
     log_message("\nMining block 2...")
-    block2 = blockchain.mine_block()
-    update_display(blockchain.chain)  # Update the display after mining
+    # block2 = blockchain.mine_block()
+    # update_display(blockchain.chain, mining_progress)  # Update the display after mining
     
     # Try to decrypt the messages again
     # Should succeed for tx1_id now

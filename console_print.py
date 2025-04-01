@@ -124,12 +124,6 @@ def comparison(renderable1: RenderableType, renderable2: RenderableType, rendabl
     table.add_row(renderable1, renderable2, rendable3)
     return table
 
-def update_logs(str) -> Text:
-    text = Text("Logging:")
-    # text.stylize("bold magenta", 0, 6)
-    text.append(str, style="bold red")
-    return text
-
 def upper_layout_content():
     return Panel(update_logs("logging"), expand=True)
 
@@ -239,40 +233,17 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
     Returns:
         Rich Layout object
     """
-    # layout = layout_content()
-    # layout["lower"]["left"].update(current_block(blockchain))
-    # layout["lower"]["right"].update(tx_panel(blockchain))
-    # layout["upper"].split_column(
-    #     Layout("", name="left"),
-    #     Layout("", name="right")
-    # )
-    # layout["upper"]["left"].update(Panel(mining_progress, title="Mining Progress", border_style="green"))
-    # layout["upper"]["right"].update(Panel(update_logs(), title="Logs", border_style="blue"))
-    # layout["upper"]["right"]
-    # layout = layout_content()
     grid = Table.grid(expand=True, padding=1, pad_edge=True)
     grid.add_column(justify="left")
-    # grid.add_column(justify="right")
-    # grid.add_row(Panel(update_logs()))
-
-    # table = Table.grid(padding=1, pad_edge=True)
-    # table.title = "Time-Release Blockchain"
-    # table.add_column("Feature", no_wrap=True, justify="center", style="bold red")
-    # table.add_column("Demonstration")
     
     # Update progress layout if a progress bar is provided
     if mining_progress:
-        grid.add_row(Panel(mining_progress, title="Mining Progress", border_style="green"))
-        # layout["upper"]["progress"].update(Panel(mining_progress, title="Mining Progress", border_style="green"))
+        grid.add_row(
+            Panel(mining_progress, title="Mining Progress", border_style="green", expand=True),
+        )
     
     # Update logs layout with update_logs()
-    # layout["upper"]["logs"].update(Panel(update_logs(), title="Logs", border_style="blue"))
     grid.add_row(Panel(update_logs(), title="Logs", border_style="blue", expand=True))
-    
-    # Update current block if blockchain is provided
-    # if blockchain and blockchain:
-    #     layout["lower"]["current_block"].update(current_block(blockchain))
-    #     layout["lower"]["current_transactions"].update(tx_panel(blockchain))
     
     # Update current block if blockchain is provided
     if blockchain and blockchain:
@@ -283,19 +254,13 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
                 Pretty(transactions_data(blockchain[-1].transactions), indent_guides=True)
             )
         )
-        # grid.add_row(
-        #     "Syntax\nhighlighting\n&\npretty\nprinting",
-        #     comparison(
-        #     current_block(blockchain),
-        #     Pretty(transactions_data(blockchain[-1].transactions), indent_guides=True)
-        #     ),
-        # )
     
     return grid
 
 # print the blockchain from trb.py file in a pretty format
 def print_layout(blockchain): 
     # rprint(blockchain_grid(blockchain))
+    
     def update_display(mining_progress: Progress = None):
         return mining_layout(blockchain, mining_progress)
     
@@ -313,7 +278,11 @@ def print_layout(blockchain):
         """
         global blockchain  # Use global to modify the reference
         blockchain = updated_blockchain
+        live.update(update_logs())
         live.update(update_display(mining_progress))
+        # wait until the live display is updated    
+        wait = 1
+        time.sleep(wait)
 
     return update_callback
 
