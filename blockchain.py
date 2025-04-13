@@ -10,8 +10,7 @@ import random
 import sys
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from console_print import print_layout, log_message, create_mining_progress, update_mining_progress
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
+from console_print import print_layout, log_message, create_mining_progress, update_mining_progress, display
 
 # Import ElGamal encryption module
 import elgamal
@@ -306,7 +305,6 @@ class TimeReleaseBlockchain:
         for _ in range(blocks_ahead):
             # Generate a new public key
             future_public_key = self.generate_next_public_key(current_public_key)
-            # log_message(f"Future public key h: {hex(future_public_key.h)}")
             future_public_keys.append(future_public_key)
             current_public_key = future_public_key
         
@@ -378,10 +376,9 @@ class TimeReleaseBlockchain:
             # TODO adjust difficulty level mod p === % (last_block.difficulty) + 1
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
             # if mod p here, also mod p in the decrypt function!
-            # hash_int = int.from_bytes(hash_bytes, byteorder='big') % new_block.header.public_key.p
             hash_int = int.from_bytes(hash_bytes, byteorder='big') % new_block.header.public_key.p
             
-            # Verify the key esing ElGamal verification
+            # Verify the key using ElGamal verification h = g^x mod p
             if new_block.header.public_key.h == elgamal.modexp(new_block.header.public_key.g, hash_int, new_block.header.public_key.p):
                 private_key = elgamal.PrivateKey(
                     p=new_block.header.public_key.p, 
@@ -440,9 +437,8 @@ class TimeReleaseBlockchain:
         if block_index + block_ahead >= len(self.chain):
             return f"Message cannot be decrypted yet. Message will be decryptable after {abs(block_ahead + block_index - len(self.chain) + 1)} blocks."
         
-        # extract the private key from the next mined block
+        # extract the private key from the last mined block
         next_block = self.chain[block_index + block_ahead] 
-        # next_block = self.get_block_by_index(-1)
         next_block_header_string = json.dumps(next_block.header.to_dict(), sort_keys=True)
         next_block_hash_bytes = hashlib.sha256(hashlib.sha256(next_block_header_string.encode()).digest()).digest()
         next_block_hash_int = int.from_bytes(next_block_hash_bytes, byteorder='big') % next_block.header.public_key.p
@@ -488,7 +484,7 @@ class TimeReleaseBlockchain:
 
     def post_tx(self, index: int) -> Optional[Dict]:
         """
-        Get a transaction by its index in the blockchain.
+        Push a dummy transaction in the blockchain.
         
         Args:
             index: Index of the transaction to retrieve
@@ -498,7 +494,7 @@ class TimeReleaseBlockchain:
         """
         with open('transactions.json', 'r') as f:
             transactions = json.load(f)
-        log_message(f"Adding first transaction: {transactions[index]['from']} -> {transactions[index]['to']}")
+        log_message(f"Adding transaction: {transactions[index]['from']} -> {transactions[index]['to']}")
 
         return self.add_transaction(
             transactions[index]['from'], 
@@ -524,7 +520,8 @@ def main():
     blockchain = TimeReleaseBlockchain(seed=Seed, num_bits=Prime_Num_Bits)
 
     # Initialize the live display
-    update_display = print_layout(blockchain.chain)
+    # update_display = print_layout(blockchain.chain)
+    update_display = display(blockchain.chain)
     
     # Add transactions
     tx1_id = blockchain.post_tx(0)
@@ -563,66 +560,6 @@ def main():
     update_mining_progress(mining_progress, mining_task, advance=1)
     mining_progress.stop()
     update_display(blockchain.chain, mining_progress)
-
-    # block1 = blockchain.mine_block()
-    
-    # Try to decrypt the messages (should fail for tx1_id since we need one more block)
-    # log_message("\nTrying to decrypt first message:")
-    # decrypted_message = blockchain.decrypt_message(1, 1, tx1_id)
-    # log_message(f"Decrypted message: {decrypted_message}")
-    
-    # Should fail for tx2_id since we need two more blocks
-    # log_message("\nTrying to decrypt second message:")
-    # decrypted_message = blockchain.decrypt_message(1, 2, tx2_id)
-    # log_message(f"Decrypted message: {decrypted_message}")
-    
-    # Mine another block (Block #2)
-    # block2 = blockchain.mine_block()
-    # update_display(blockchain.chain, mining_progress)  # Update the display after mining
-    
-    # Try to decrypt the messages again
-    # Should succeed for tx1_id now
-    # log_message("\nTrying to decrypt first message:")
-    # decrypted_message = blockchain.decrypt_message(1, 1, tx1_id)
-    # log_message(f"Decrypted message: {blockchain.get_transaction_by_id(1, tx1_id).sender} -> {blockchain.get_transaction_by_id(1, tx1_id).recipient}: {decrypted_message}")
-    
-    # Should still fail for tx2_id
-    # log_message("\nTrying to decrypt second message:")
-    # decrypted_message = blockchain.decrypt_message(1, 2, tx2_id)
-    # log_message(f"Decrypted message: {decrypted_message}")
-    
-    # Add another transaction
-    # log_message("Adding third transaction: Eve -> Frank")
-    # tx3_id = blockchain.add_transaction("Eve", "Frank", "Another time locked message", 1)
-    
-    # Mine another block (Block #3)
-    # log_message("\nMining block 3...")
-    # block3 = blockchain.mine_block()
-    # update_display(blockchain.chain)  # Update the display after mining
-
-     # Should succeed for tx2_id
-    # log_message("\nTrying to decrypt second message:")
-    # decrypted_message = blockchain.decrypt_message(1, 2, tx2_id)
-    # log_message(f"Decrypted message: {blockchain.get_transaction_by_id(1, tx2_id).sender} -> {blockchain.get_transaction_by_id(1, tx2_id).recipient}: {decrypted_message}")
-
-     # Should fail for tx3_id
-    # log_message("\nTrying to decrypt third message:")
-    # decrypted_message = blockchain.decrypt_message(3, 1, tx3_id)
-    # log_message(f"Decrypted message: {decrypted_message}")
-
-     # Mine another block (Block #4)
-    # log_message("\nMining block 4...")
-    # block4 = blockchain.mine_block()
-    # update_display(blockchain.chain)  # Update the display after mining
-
-    # Should succeed for tx3_id
-    # log_message("\nTrying to decrypt third message:")
-    # decrypted_message = blockchain.decrypt_message(3, 1, tx3_id)
-    # log_message(f"Decrypted message: {blockchain.get_transaction_by_id(3, tx3_id).sender} -> {blockchain.get_transaction_by_id(3, tx3_id).recipient}: {decrypted_message}")
-    
-    # log_message the blockchain summary
-    # log_message("\nBlockchain:")
-    # log_message_layout(blockchain.chain)
 
 if __name__ == "__main__":
     main()

@@ -127,8 +127,8 @@ def comparison3(renderable1: RenderableType, renderable2: RenderableType, rendab
 
 def comparison2(renderable1: RenderableType, renderable2: RenderableType) -> Table:
        table = Table(show_header=False, pad_edge=False, box=None, expand=True)
-       table.add_column("1", ratio=1)
-       table.add_column("2", ratio=1)
+       table.add_column("1", ratio=1, style="bold red")
+       table.add_column("2", ratio=2)
        table.add_row(renderable1, renderable2)
        return table
 
@@ -342,9 +342,67 @@ def print_layout(blockchain):
 
     return update_callback
 
+def make_layout(blockchain=None, mining_progress: Progress = None) -> Layout:
+    """Define the layout."""
+    layout = Layout(name="root")
+
+    layout.split(
+        Layout(name="header", size=3),
+        Layout(name="main", ratio=1),
+        Layout(name="footer", size=7),
+    )
+    layout["main"].split_row(
+        Layout(name="side"),
+        Layout(name="body", ratio=2, minimum_size=60),
+    )
+    layout["side"].split(Layout(name="box1", ratio=2), Layout(name="box2"))
+
+    layout["header"].update(Panel(mining_progress, title="Time Release Blockchain", border_style="green", expand=True))
+    layout["body"].update(Panel(update_logs(), title="Logs", border_style="blue", expand=True))
+    layout["box2"].update(Panel(comparison2("Generated\nkey pairs", keyPairs(blockchain)), border_style="none", expand=True))
+    layout["box1"].update(current_block(blockchain))
+    # layout["box1"].update(Panel(current_block(blockchain), title="Latest Block", border_style="white", expand=True))
+    layout["footer"].update(Panel("", title="Transactions", border_style="red", expand=True))
+
+    return layout
+    
 def main():
-    pass
-   
+    # console.clear()
+    # layout = layout_content()
+    layout = make_layout()
+    layout["header"].update(Panel("", title="Time Release Blockchain", border_style="green", expand=True))
+    layout["body"].update(Panel("", title="Logs", border_style="blue", expand=True))
+    layout["box2"].update(Panel("", title="Key Pairs", border_style="green", expand=True))
+    layout["box1"].update(Panel("", title="Latest Block", border_style="white", expand=True))
+    layout["footer"].update(Panel("", title="Transactions", border_style="red", expand=True))
+    rprint(layout)
+    
+    # pass
+def display(blockchain): 
+
+    def update_display(mining_progress: Progress = None):
+        return make_layout(blockchain, mining_progress)
+    
+    # Use Live to update the display dynamically
+    live = Live(update_display(), refresh_per_second=4, vertical_overflow="crop")
+    live.start()
+
+    def update_callback(updated_blockchain: List, mining_progress: Progress = None):
+        """
+        Update the live display with the new blockchain state
+        
+        Args:
+            updated_blockchain: The current state of the blockchain
+            mining_progress: Optional Progress object for mining
+        """
+        global blockchain  # Use global to modify the reference
+        blockchain = updated_blockchain
+        live.update(update_display(mining_progress))
+        # wait until the live display is updated    
+        # wait = 1
+        # time.sleep(wait)
+
+    return update_callback 
 
 if __name__ == "__main__":
     main()
