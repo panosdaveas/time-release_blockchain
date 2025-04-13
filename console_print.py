@@ -13,6 +13,7 @@ import logging
 from rich.logging import RichHandler
 from rich.live import Live
 from typing import List
+from rich import box
 import time
 from rich.progress import track
 from rich.progress import (
@@ -116,12 +117,59 @@ def tx_panel(blockchain) -> Panel:
 def print_blockchain(blockchain):
     rprint(blockchain_grid(blockchain))
 
-def comparison(renderable1: RenderableType, renderable2: RenderableType, rendable3: RenderableType) -> Table:
+def comparison3(renderable1: RenderableType, renderable2: RenderableType, rendable3: RenderableType) -> Table:
     table = Table(show_header=False, pad_edge=False, box=None, expand=True)
     table.add_column("1", style="bold red")
-    table.add_column("2",)
-    table.add_column("3", ratio=2)
+    table.add_column("2", ratio=2)
+    table.add_column("3", ratio=1)
     table.add_row(renderable1, renderable2, rendable3)
+    return table
+
+def comparison2(renderable1: RenderableType, renderable2: RenderableType) -> Table:
+       table = Table(show_header=False, pad_edge=False, box=None, expand=True)
+       table.add_column("1", ratio=1)
+       table.add_column("2", ratio=1)
+       table.add_row(renderable1, renderable2)
+       return table
+
+def transactionsTable(transactions) -> Table:
+    table = Table(
+        show_edge=False,
+        show_header=True,
+        expand=False,
+        row_styles=["none", "dim"],
+        box=box.SIMPLE,
+    )
+    table.add_column("TxID", justify="left", style="bold red", no_wrap=True)
+    table.add_column("From", justify="left", style="bold red", no_wrap=True)
+    table.add_column("", justify="left", style="bold red", no_wrap=True)
+    table.add_column("To", justify="left", style="bold red", no_wrap=True)
+    table.add_column("Payload", justify="left", style="bold red", no_wrap=True)
+    for i, tx in enumerate(transactions):
+        table.add_row(
+            f"{hex(int(tx.transaction_id, 16))}",
+            f"{tx.sender}",
+            f"->",
+            f"{tx.recipient}",
+            f"{tx.encrypted_message[:8]}...{tx.encrypted_message[-8:]}"
+        )
+    return table
+
+def keyPairs(blockchain) -> Table:
+    table = Table(
+        show_edge=False,
+        show_header=True,
+        expand=False,
+        row_styles=["none", "dim"],
+        box=box.SIMPLE,
+    )
+    table.add_column("Public", justify="left", style="bold red", no_wrap=True)
+    table.add_column("Private", justify="left", style="bold red", no_wrap=True)
+    if len(blockchain) > 1:
+        table.add_row(
+            f"{blockchain[-2].header.public_key.h}",
+            f"{blockchain[-1].header.nonce}"
+        )
     return table
 
 def upper_layout_content():
@@ -248,12 +296,13 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
     # Update current block if blockchain is provided
     if blockchain and blockchain:
         grid.add_row(
-            comparison(
-                "Displaying\nlatest mined block\n& transactions",
+            comparison3(
+                "Latest\nmined block",
                 current_block(blockchain),
                 Pretty(transactions_data(blockchain[-1].transactions), indent_guides=True)
             )
         )
+        # grid.add_row(transactionsTable(blockchain[-1].transactions))
     
     return grid
 
@@ -265,7 +314,7 @@ def print_layout(blockchain):
         return mining_layout(blockchain, mining_progress)
     
     # Use Live to update the display dynamically
-    live = Live(update_display(), refresh_per_second=4, vertical_overflow="crop")
+    live = Live(update_display(), refresh_per_second=16, vertical_overflow="crop")
     live.start()
 
     def update_callback(updated_blockchain: List, mining_progress: Progress = None):

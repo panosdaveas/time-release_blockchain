@@ -18,6 +18,7 @@ import elgamal
 
 Public_Key_Length = 256 # Number of bits for public key generation
 Prime_Num_Bits = 22 # Number of bits for prime generation
+Seed = 833050814021254693158343911234888353695402778102174580258852673738983005 # Seed for random number generation
 #Recommended values:
 # 2048 bits → Secure for now.
 # 3072 bits → Recommended for long-term security.
@@ -377,6 +378,7 @@ class TimeReleaseBlockchain:
             # TODO adjust difficulty level mod p === % (last_block.difficulty) + 1
             hash_bytes = hashlib.sha256(hashlib.sha256(header_string.encode()).digest()).digest()
             # if mod p here, also mod p in the decrypt function!
+            # hash_int = int.from_bytes(hash_bytes, byteorder='big') % new_block.header.public_key.p
             hash_int = int.from_bytes(hash_bytes, byteorder='big') % new_block.header.public_key.p
             
             # Verify the key esing ElGamal verification
@@ -391,16 +393,16 @@ class TimeReleaseBlockchain:
                 break
         
         mining_time = time.time() - start_time
-        log_message(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
-        log_message(f"Current block public key h: {hex(new_block.header.public_key.h)}")
-        log_message(f"Private key x for the previous block derived from block hash: {hex(private_key.x)}")
-        
         # Finalize the block with its hash
         new_block.hash = block_hash
         
         # Add to chain and clear pending transactions
         self.chain.append(new_block)
         self.pending_transactions = []
+
+        log_message(f"Block mined in {mining_time:.2f} seconds with nonce: {new_block.header.nonce}")
+        log_message(f"Current block public key h: {hex(new_block.header.public_key.h)}")
+        log_message(f"Private key x for the previous block derived from block hash: {hex(private_key.x)}")
         
         return new_block
     
@@ -519,7 +521,7 @@ def main():
 
     log_message("\nMining Genesis block...")
     # Create a blockchain
-    blockchain = TimeReleaseBlockchain(seed=833050814021254693158343911234888353695402778102174580258852673738983005, num_bits=Prime_Num_Bits)
+    blockchain = TimeReleaseBlockchain(seed=Seed, num_bits=Prime_Num_Bits)
 
     # Initialize the live display
     update_display = print_layout(blockchain.chain)
@@ -539,6 +541,16 @@ def main():
     mining_progress.stop()
     update_display(blockchain.chain, mining_progress)
 
+    update_display(blockchain.chain)  # Update the display after mining
+    log_message("\nMining block 2...")  
+    mining_progress = create_mining_progress("Mining second block...")
+    mining_task = mining_progress.add_task("[green]Mining block...", total=1)
+    update_display(blockchain.chain, mining_progress)
+    block2 = blockchain.mine_block()
+    update_mining_progress(mining_progress, mining_task, advance=1)
+    mining_progress.stop()
+    update_display(blockchain.chain, mining_progress)
+
     # block1 = blockchain.mine_block()
     
     # Try to decrypt the messages (should fail for tx1_id since we need one more block)
@@ -552,7 +564,6 @@ def main():
     # log_message(f"Decrypted message: {decrypted_message}")
     
     # Mine another block (Block #2)
-    log_message("\nMining block 2...")
     # block2 = blockchain.mine_block()
     # update_display(blockchain.chain, mining_progress)  # Update the display after mining
     
