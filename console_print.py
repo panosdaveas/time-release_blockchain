@@ -40,7 +40,7 @@ log_messages = []
 def header_grid(header) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
-    grid.add_column(justify="right", max_width=24, style="bold")
+    grid.add_column(justify="right", style="bold")
     grid.add_row("Index", f"{header.index}")
     grid.add_row("Previous Hash", f"{hex(int(header.prev_hash, 16))}")
     grid.add_row("Timestamp", f"{header.timestamp}")
@@ -53,7 +53,7 @@ def header_grid(header) -> Table:
 def body_grid(transactions) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
-    grid.add_column(justify="right", max_width=16, style="bold", no_wrap=True)
+    grid.add_column(justify="right", style="bold", no_wrap=True)
     grid.add_row("Transactions count", f"{len(transactions)}")
     # grid.add_row(f"Transactions" if len(transactions) > 0 else "[bold][red]No Transactions", "")
     # for tx in transactions:
@@ -89,7 +89,7 @@ def current_block(blockchain) -> Panel:
     if block.header.index == 0:
         return Panel.fit(block_grid(block),title=f"BLOCK [bold red]{block.header.index}", subtitle="Genesis Block")
     else:
-        return Panel.fit(block_grid(block),title=f"BLOCK [bold red]{block.header.index}", subtitle="Latest Block")
+        return Panel.fit(block_grid(block),title=f"BLOCK [bold red]{block.header.index}", subtitle="")
 
 def tx_data(tx, index) -> dict:
     tx_data = {
@@ -120,7 +120,7 @@ def print_blockchain(blockchain):
 def comparison3(renderable1: RenderableType, renderable2: RenderableType, rendable3: RenderableType) -> Table:
     table = Table(show_header=False, pad_edge=False, box=None, expand=True)
     table.add_column("1", style="bold red")
-    table.add_column("2", ratio=2)
+    table.add_column("2", ratio=1)
     table.add_column("3", ratio=1)
     table.add_row(renderable1, renderable2, rendable3)
     return table
@@ -157,19 +157,27 @@ def transactionsTable(transactions) -> Table:
 
 def keyPairs(blockchain) -> Table:
     table = Table(
+        # title="Key Pairs",
         show_edge=False,
         show_header=True,
         expand=False,
-        row_styles=["none", "dim"],
+        # row_styles=["none", "dim"],
         box=box.SIMPLE,
     )
     table.add_column("Public", justify="left", style="bold red", no_wrap=True)
     table.add_column("Private", justify="left", style="bold red", no_wrap=True)
     if len(blockchain) > 1:
-        table.add_row(
-            f"{blockchain[-2].header.public_key.h}",
-            f"{blockchain[-1].header.nonce}"
-        )
+        for i in range(len(blockchain) - 1):
+            style = None if i == 0 else "dim"
+            table.add_row(
+                f"{hex(blockchain[i].header.public_key.h)}",
+                f"{hex(blockchain[i+1].header.nonce)}",
+                style=style
+            )
+        # table.add_row(
+        #     f"{blockchain[-2].header.public_key.h}",
+        #     f"{blockchain[-1].header.nonce}"
+        # )
     return table
 
 def upper_layout_content():
@@ -285,10 +293,9 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
     grid.add_column(justify="left")
     
     # Update progress layout if a progress bar is provided
-    if mining_progress:
-        grid.add_row(
-            Panel(mining_progress, title="Mining Progress", border_style="green", expand=True),
-        )
+    grid.add_row(
+        Panel(mining_progress if mining_progress else "", title="Mining Progress", border_style="green", expand=True)
+    )
     
     # Update logs layout with update_logs()
     grid.add_row(Panel(update_logs(), title="Logs", border_style="blue", expand=True))
@@ -299,7 +306,8 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
             comparison3(
                 "Latest\nmined block",
                 current_block(blockchain),
-                Pretty(transactions_data(blockchain[-1].transactions), indent_guides=True)
+                keyPairs(blockchain),
+                # Pretty(transactions_data(blockchain[-1].transactions), indent_guides=True)
             )
         )
         # grid.add_row(transactionsTable(blockchain[-1].transactions))
@@ -308,13 +316,14 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
 
 # print the blockchain from trb.py file in a pretty format
 def print_layout(blockchain): 
+    console.clear()
     # rprint(blockchain_grid(blockchain))
     
     def update_display(mining_progress: Progress = None):
         return mining_layout(blockchain, mining_progress)
     
     # Use Live to update the display dynamically
-    live = Live(update_display(), refresh_per_second=16, vertical_overflow="crop")
+    live = Live(update_display(), refresh_per_second=4, vertical_overflow="crop")
     live.start()
 
     def update_callback(updated_blockchain: List, mining_progress: Progress = None):

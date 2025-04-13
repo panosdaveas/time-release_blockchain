@@ -17,7 +17,7 @@ from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeEl
 import elgamal
 
 Public_Key_Length = 256 # Number of bits for public key generation
-Prime_Num_Bits = 22 # Number of bits for prime generation
+Prime_Num_Bits = 18 # Number of bits for prime generation
 Seed = 833050814021254693158343911234888353695402778102174580258852673738983005 # Seed for random number generation
 #Recommended values:
 # 2048 bits → Secure for now.
@@ -541,12 +541,25 @@ def main():
     mining_progress.stop()
     update_display(blockchain.chain, mining_progress)
 
+    tx3_id = blockchain.post_tx(3)
     update_display(blockchain.chain)  # Update the display after mining
     log_message("\nMining block 2...")  
     mining_progress = create_mining_progress("Mining second block...")
     mining_task = mining_progress.add_task("[green]Mining block...", total=1)
     update_display(blockchain.chain, mining_progress)
     block2 = blockchain.mine_block()
+    update_mining_progress(mining_progress, mining_task, advance=1)
+    mining_progress.stop()
+    update_display(blockchain.chain, mining_progress)
+
+    tx4_id = blockchain.post_tx(4)
+    tx5_id = blockchain.post_tx(5)
+    update_display(blockchain.chain)  # Update the display after mining
+    log_message("\nMining block 3...")  
+    mining_progress = create_mining_progress("Mining second block...")
+    mining_task = mining_progress.add_task("[green]Mining block...", total=1)
+    update_display(blockchain.chain, mining_progress)
+    block3 = blockchain.mine_block()
     update_mining_progress(mining_progress, mining_task, advance=1)
     mining_progress.stop()
     update_display(blockchain.chain, mining_progress)
