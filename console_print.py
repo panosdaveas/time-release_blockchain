@@ -189,8 +189,6 @@ def table_content() -> Table:
     table.add_column("Demonstration")
     table.add_row(
         "Syntax\nhighlighting\n&\npretty\nprinting",
-        comparison(
-        ),
     )
     return table
 
@@ -298,7 +296,7 @@ def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
     )
     
     # Update logs layout with update_logs()
-    grid.add_row(Panel(update_logs(), title="Logs", border_style="blue", expand=True))
+    grid.add_row(Panel(update_logs(), height=12, title="Logs", border_style="blue", expand=True))
     
     # Update current block if blockchain is provided
     if blockchain and blockchain:
