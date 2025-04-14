@@ -36,7 +36,7 @@ renderables = Renderables([text])
 log_messages = []
 
 
-def header_grid(header) -> Table:
+def block_header_grid(header) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
     grid.add_column(justify="right", style="bold")
@@ -51,26 +51,18 @@ def header_grid(header) -> Table:
     return grid
 
 
-def body_grid(transactions) -> Table:
+def block_body_grid(transactions) -> Table:
     grid = Table.grid(expand=True)
     grid.add_column()
     grid.add_column(justify="right", style="bold", no_wrap=True)
     grid.add_row("Transactions count", f"{len(transactions)}")
-    # grid.add_row(f"Transactions" if len(transactions) > 0 else "[bold][red]No Transactions", "")
-    # for tx in transactions:
-    #     grid.add_row("", "")
-    #     grid.add_row("TxID", f"{hex(int(tx.transaction_id, 16))}")
-    #     grid.add_row("Sender", f"{tx.sender}")
-    #     grid.add_row("Receiver", f"{tx.recipient}")
-    #     grid.add_row("Timestamp", f"{tx.timestamp}")
-    #     grid.add_row("tx.encrypted_message", f"{tx.encrypted_message}")
     return grid
 
 
 def block_grid(block) -> Table:
-    panel_header = Panel(header_grid(block.header),
+    panel_header = Panel(block_header_grid(block.header),
                          title="[bold]Header", title_align="left")
-    panel_body = Panel(body_grid(block.transactions),
+    panel_body = Panel(block_body_grid(block.transactions),
                        title="[bold]Body", title_align="left")
     grid = Table.grid(expand=True)
     grid.add_column()
@@ -95,9 +87,9 @@ def blockchain_grid(blockchain) -> Table:
 def current_block(blockchain) -> Panel:
     block = blockchain[-1]
     if block.header.index == 0:
-        return Panel.fit(block_grid(block), title=f"BLOCK [bold red]{block.header.index}", subtitle="Genesis Block")
+        return Panel(block_grid(block), title=f"BLOCK [bold red]{block.header.index}", subtitle="Genesis Block")
     else:
-        return Panel.fit(block_grid(block), title=f"BLOCK [bold red]{block.header.index}", subtitle="")
+        return Panel(block_grid(block), title=f"BLOCK [bold red]{block.header.index}", subtitle="")
 
 
 def tx_data(tx, index) -> dict:
@@ -151,7 +143,7 @@ def transactionsTable(transactions) -> Table:
     table = Table(
         show_edge=False,
         show_header=True,
-        expand=False,
+        expand=True,
         row_styles=["none", "dim"],
         box=box.SIMPLE,
     )
@@ -162,7 +154,7 @@ def transactionsTable(transactions) -> Table:
     table.add_column("Payload", justify="left", style="bold red", no_wrap=True)
     for i, tx in enumerate(transactions):
         table.add_row(
-            f"{hex(int(tx.transaction_id, 16))}",
+            f"{hex(int(tx.transaction_id, 16))[:16]}",
             f"{tx.sender}",
             f"->",
             f"{tx.recipient}",
@@ -397,7 +389,7 @@ def make_layout(blockchain=None, mining_progress: Progress = None) -> Layout:
     layout["box1"].update(current_block(blockchain))
     # layout["box1"].update(Panel(current_block(blockchain), title="Latest Block", border_style="white", expand=True))
     layout["footer"].update(
-        Panel("", title="Transactions", border_style="red", expand=True))
+        Panel(transactionsTable(blockchain[-1].transactions), title="Transactions", border_style="red", expand=True))
 
     return layout
 
