@@ -16,7 +16,7 @@ from console_print import print_layout, log_message, create_mining_progress, upd
 import elgamal
 
 Public_Key_Length = 256 # Number of bits for public key generation
-Prime_Num_Bits = 18 # Number of bits for prime generation
+Prime_Num_Bits = 22 # Number of bits for prime generation
 Seed = 833050814021254693158343911234888353695402778102174580258852673738983005 # Seed for random number generation
 #Recommended values:
 # 2048 bits → Secure for now.
