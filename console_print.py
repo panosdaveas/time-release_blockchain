@@ -34,6 +34,7 @@ layout = Layout()
 text = Text("foo")
 renderables = Renderables([text])
 log_messages = []
+transactions = []
 
 
 
@@ -132,28 +133,44 @@ def comparison2(renderable1: RenderableType, renderable2: RenderableType) -> Tab
        table.add_row(renderable1, renderable2)
        return table
 
-def transactionsTable(transactions) -> Table:
-    table = Table(
-        show_edge=False,
-        show_header=True,
-        expand=False,
-        row_styles=["none", "dim"],
-        box=box.SIMPLE,
-    )
-    table.add_column("TxID", justify="left", style="bold red", no_wrap=True)
-    table.add_column("From", justify="left", style="bold red", no_wrap=True)
-    table.add_column("", justify="left", style="bold red", no_wrap=True)
-    table.add_column("To", justify="left", style="bold red", no_wrap=True)
-    table.add_column("Payload", justify="left", style="bold red", no_wrap=True)
-    for i, tx in enumerate(transactions):
+
+table = Table(
+    show_edge=False,
+    show_header=True,
+    expand=True,
+    row_styles=["none", "dim"],
+    box=box.SIMPLE,
+)
+table.add_column("TxID", justify="left", style="bold red", no_wrap=True)
+table.add_column("From", justify="left", style="bold red", no_wrap=True)
+table.add_column("", justify="left", style="bold red", no_wrap=True)
+table.add_column("To", justify="left", style="bold red", no_wrap=True)
+table.add_column("Payload", justify="left", style="bold red", no_wrap=True)
+
+def transactionsTable(transaction: dict = None, decrypted_message: str = None) -> Table:
+    global transactions
+
+
+    if transaction:
+        transaction.decrypted_message = decrypted_message
+        transactions.append(transaction)
+    
+    if len(transactions) > 10:
+        transactions = transactions[-10:]
+
+    for tx in reversed(transactions):
         table.add_row(
-            f"{hex(int(tx.transaction_id, 16))}",
+            f"{hex(int(tx.transaction_id, 16))}"[:8],
             f"{tx.sender}",
             f"->",
             f"{tx.recipient}",
-            f"{tx.encrypted_message[:8]}...{tx.encrypted_message[-8:]}"
+            f"{tx.decrypted_message}"
+            # f"{tx.encrypted_message[:8]}...{tx.encrypted_message[-8:]}"
         )
     return table
+
+def log_transaction(tx, decrypted_message):
+    transactionsTable(tx, decrypted_message)
 
 def keyPairs(blockchain) -> Table:
     table = Table(
@@ -224,8 +241,8 @@ def update_logs(new_message: str = None) -> Text:
         log_messages.append(new_message)
     
     # Keep only the last 10 log messages
-    if len(log_messages) > 10:
-        log_messages = log_messages[-10:]
+    if len(log_messages) > 16:
+        log_messages = log_messages[-16:]
     
     # Create a Text object with log messages
     log_text = Text()
@@ -349,11 +366,11 @@ def make_layout(blockchain=None, mining_progress: Progress = None) -> Layout:
     layout.split(
         Layout(name="header", size=3),
         Layout(name="main", ratio=1),
-        Layout(name="footer", size=7),
+        Layout(name="footer", size=10),
     )
     layout["main"].split_row(
         Layout(name="side"),
-        Layout(name="body", ratio=2, minimum_size=60),
+        Layout(name="body", ratio=2, minimum_size=30),
     )
     layout["side"].split(Layout(name="box1", ratio=2), Layout(name="box2"))
 
@@ -362,7 +379,7 @@ def make_layout(blockchain=None, mining_progress: Progress = None) -> Layout:
     layout["box2"].update(Panel(comparison2("Generated\nkey pairs", keyPairs(blockchain)), border_style="none", expand=True))
     layout["box1"].update(current_block(blockchain))
     # layout["box1"].update(Panel(current_block(blockchain), title="Latest Block", border_style="white", expand=True))
-    layout["footer"].update(Panel("", title="Transactions", border_style="red", expand=True))
+    layout["footer"].update(Panel(transactionsTable(), title="Transactions", border_style="red", expand=True))
 
     return layout
     
@@ -397,6 +414,7 @@ def display(blockchain):
         """
         global blockchain  # Use global to modify the reference
         blockchain = updated_blockchain
+        # live.update(transactionsTable())
         live.update(update_display(mining_progress))
         # wait until the live display is updated    
         # wait = 1
