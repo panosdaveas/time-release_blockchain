@@ -501,7 +501,6 @@ class TimeReleaseBlockchain:
             return f"Decryption error: {str(e)}"
 
     def parse_block(self):
-        # block = self.chain[-1]
         for block in self.chain:
             for tx in block.transactions:
                 if tx.block_index + tx.blocks_ahead == self.chain[-1].header.index:
@@ -541,36 +540,7 @@ class TimeReleaseBlockchain:
 
         return private_key
 
-    def check_transaction(self, transaction, index) -> Transaction:
-        try:
-            # log_message(
-            # f"Decrypting message with private key: {hex(private_key.x)}")
-            private_key = self.get_current_private_key(index)
-            decrypted_message = Transaction.decrypt_message(
-                transaction.encrypted_message, private_key)
-            log_message(f"Decrypting with private key: {hex(private_key.x)}")
-            return decrypted_message, True
-        except Exception as e:
-            return f"Message not decryptable yet", False
-            # return f"Decryption error: {str(e)}"
 
-    def parse_all_blocks(self) -> List[str]:
-        """
-        Parse all blocks in the blockchain and decrypt their messages.
-
-        Returns:
-            List of decrypted messages from all blocks
-        """
-        decrypted_messages = []
-        for block in self.chain[1:]:
-            for transaction in block.transactions:
-                decrypted_message, flag = self.check_transaction(
-                    transaction, block.header.index)
-                transaction.encrypted_message = decrypted_message
-                if flag:
-                    log_transaction(transaction)
-                decrypted_messages.append(decrypted_message)
-        return decrypted_messages
 
     def get_block_by_index(self, index: int) -> Optional[Dict]:
         """
