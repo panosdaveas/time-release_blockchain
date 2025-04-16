@@ -248,10 +248,10 @@ def layout_content() -> Layout:
 def update_logs(new_message: str = None) -> Text:
     """
     Update and retrieve log messages.
-    
+
     Args:
         new_message: Optional new message to add to logs
-    
+
     Returns:
         Rich Text object with formatted log messages
     """
@@ -278,7 +278,7 @@ def update_logs(new_message: str = None) -> Text:
 def log_message(message: str):
     """
     Log a message to be displayed in the upper layout.
-    
+
     Args:
         message: Message to log
     """
@@ -288,11 +288,11 @@ def log_message(message: str):
 def create_mining_progress(description: str = "Mining block...", total: float = 1.0) -> Progress:
     """
     Create a mining progress bar for the upper layout.
-    
+
     Args:
         description: Description of the mining task
         total: Total work units for the progress bar
-    
+
     Returns:
         Rich Progress object
     """
@@ -309,7 +309,7 @@ def create_mining_progress(description: str = "Mining block...", total: float = 
 def update_mining_progress(progress: Progress, task_id: int, advance: float = 0.5) -> None:
     """
     Update the mining progress bar.
-    
+
     Args:
         progress: Rich Progress object
         task_id: ID of the task to update
@@ -321,11 +321,11 @@ def update_mining_progress(progress: Progress, task_id: int, advance: float = 0.
 def mining_layout(blockchain=None, mining_progress: Progress = None) -> Table:
     """
     Create a layout with mining progress and logs.
-    
+
     Args:
         blockchain: Optional blockchain for current block display
         mining_progress: Optional Progress object for mining
-    
+
     Returns:
         Rich Layout object
     """
@@ -374,7 +374,7 @@ def print_layout(blockchain):
     def update_callback(updated_blockchain: List, mining_progress: Progress = None):
         """
         Update the live display with the new blockchain state
-        
+
         Args:
             updated_blockchain: The current state of the blockchain
             mining_progress: Optional Progress object for mining
@@ -451,7 +451,7 @@ def display(blockchain):
     def update_callback(updated_blockchain: List, mining_progress: Progress = None):
         """
         Update the live display with the new blockchain state
-        
+
         Args:
             updated_blockchain: The current state of the blockchain
             mining_progress: Optional Progress object for mining
