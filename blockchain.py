@@ -505,12 +505,11 @@ class TimeReleaseBlockchain:
         # block = self.chain[-1]
         for block in self.chain:
             for tx in block.transactions:
-                decrypted_message = self.decrypt_message(
-                    tx.block_index, tx.blocks_ahead, tx.transaction_id)
-                # tx.encrypted_message = decrypted_message
-                # print(decrypted_message)
-                log_message(decrypted_message)
-                log_transaction(tx, decrypted_message)
+                if tx.block_index + tx.blocks_ahead == self.chain[-1].header.index:
+                    decrypted_message = self.decrypt_message(
+                        tx.block_index, tx.blocks_ahead, tx.transaction_id)
+                    log_message(decrypted_message)
+                    log_transaction(tx, decrypted_message)
 
 
     def get_current_private_key(self, index) -> Optional[elgamal.PrivateKey]:
@@ -687,7 +686,7 @@ def main():
     block3 = blockchain.mine_block()
     update_mining_progress(mining_progress, mining_task, advance=1)
     mining_progress.stop()
-    # blockchain.parse_block()
+    blockchain.parse_block()
     update_display(blockchain.chain, mining_progress)
 
 
